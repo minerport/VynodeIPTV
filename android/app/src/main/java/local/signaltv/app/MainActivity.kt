@@ -12,6 +12,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.border
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.semantics
@@ -219,16 +221,16 @@ class MainActivity: ComponentActivity() {
         if(multiView){MultiView();return}
         var settings by remember{mutableStateOf(false)}
         Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(TvPalette.Glow,TvPalette.Background))).padding(horizontal=24.dp,vertical=12.dp)){
-            if(profile==null)Text("SIGNAL TV · $status",style=MaterialTheme.typography.titleLarge)
+            if(profile==null)Text("VYNODE IPTV · $status",style=MaterialTheme.typography.titleLarge)
             if(unlockError){Text(status);Button(onClick={restoreConnection()}){Text("Retry")};Button(onClick={secure.clear();unlockError=false;status="Choose how to connect"}){Text("Reset saved login")};return@Column}
             if(profile==null){Setup();return@Column}
             if(busy && channels.isEmpty())LinearProgressIndicator(Modifier.fillMaxWidth())
             repository?.let { repo -> GuideScreen(channels,repo,guideState,onWall={wallMode=wallMode.enter();multiView=true;saveScene();ensureStreams()},onSettings={settings=true},onRefresh={profile?.let{connect(it)}},preview={height->
                 Row(Modifier.fillMaxWidth().padding(bottom=8.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)){
                     Column{
-                        Box(Modifier.height(height).aspectRatio(16f/9f).background(Color.Black)){
+                        Box(Modifier.height(height).aspectRatio(16f/9f).clip(RoundedCornerShape(12.dp)).background(Color.Black).border(1.dp,TvPalette.Line,RoundedCornerShape(12.dp))){
                             if(c!=null)AndroidView(factory={PlayerView(it).apply{bindPlaybackView(this,engine);keepScreenOn=true;useController=false}},update={bindPlaybackView(it,engine)},onRelease={bindPlaybackView(it,null)},modifier=Modifier.fillMaxSize())
-                            if(c==null)Text("Select a channel",Modifier.align(Alignment.Center))
+                            if(c==null)Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Text("VYNODE",style=MaterialTheme.typography.headlineMedium,color=TvPalette.Accent);Text("Choose something worth watching",style=MaterialTheme.typography.bodySmall,color=TvPalette.Muted)}
                             if(c!=null)Box(Modifier.matchParentSize().clickable(onClickLabel="Open fullscreen"){ensureStreams();fullScreen=true})
                         }
                         if(c!=null)Row(Modifier.width(height*16f/9f).padding(top=4.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
@@ -236,17 +238,9 @@ class MainActivity: ComponentActivity() {
                             TextButton(onClick={stopPlayback()}){Text("Remove all streams")}
                         }
                     }
-                    Column(Modifier.weight(1f).padding(top=8.dp)){
-                        val programme=guideState.focusedProgramme.value?:guideState.cache[guideState.focusedChannel.value?.id?:c?.id]?.second?.firstOrNull{it.start<=System.currentTimeMillis() && it.end>System.currentTimeMillis()}
-                        Text(programme?.title?:c?.name?:"Live TV",style=MaterialTheme.typography.titleLarge,maxLines=2)
-                        if(programme!=null){
-                            val formatter=java.time.format.DateTimeFormatter.ofPattern("h:mm a").withZone(java.time.ZoneId.systemDefault())
-                            Text(formatter.format(java.time.Instant.ofEpochMilli(programme.start))+" – "+formatter.format(java.time.Instant.ofEpochMilli(programme.end)),style=MaterialTheme.typography.bodyMedium)
-                        }
-                        if(!programme?.description.isNullOrBlank())Text(programme!!.description,style=MaterialTheme.typography.bodyMedium,maxLines=3)
-                        Spacer(Modifier.height(8.dp))
-                        Text(if(c==null)"Choose a group, then select a channel to watch." else c.name+" · "+status,style=MaterialTheme.typography.bodyMedium,maxLines=3)
-                    }
+                    val featuredChannel=guideState.focusedChannel.value?:c
+                    val programme=guideState.focusedProgramme.value?:currentProgramme(guideState.cache[featuredChannel?.id]?.second.orEmpty(),System.currentTimeMillis())
+                    ProgrammeFeature(featuredChannel,programme,c,Modifier.weight(1f))
                 }
             },play=::play) }
 

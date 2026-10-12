@@ -11,6 +11,8 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -128,8 +130,8 @@ class GuideUiState {
         }
     }
     Row(Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-        if(navigationOpen)Column(Modifier.width(64.dp).fillMaxHeight().background(TvPalette.Surface).padding(4.dp)){
-            Text("TV",Modifier.padding(8.dp),style=MaterialTheme.typography.titleLarge)
+        if(navigationOpen)Column(Modifier.width(64.dp).fillMaxHeight().background(TvPalette.Surface,RoundedCornerShape(14.dp)).padding(4.dp)){
+            Text("V",Modifier.padding(14.dp),color=TvPalette.Signal,fontWeight=FontWeight.Black,style=MaterialTheme.typography.titleLarge)
             RailIconButton(R.drawable.rail_search,"Search channels",showLabel=!searching){searchDraft=query;searching=true}
             RailIconButton(R.drawable.rail_favorite,"Favorites"){choose("favorites")}
             RailIconButton(R.drawable.rail_wall,"Video wall",action=onWall)
@@ -137,8 +139,8 @@ class GuideUiState {
             Spacer(Modifier.weight(1f))
             RailIconButton(R.drawable.rail_settings,"Connection settings",action=onSettings)
         }
-        if(navigationOpen)Column(Modifier.width(180.dp).fillMaxHeight().background(TvPalette.Surface).padding(8.dp)){
-            Text("CHANNEL GROUPS",style=MaterialTheme.typography.labelMedium,modifier=Modifier.padding(8.dp))
+        if(navigationOpen)Column(Modifier.width(180.dp).fillMaxHeight().background(TvPalette.Surface,RoundedCornerShape(14.dp)).padding(8.dp)){
+            Text("YOUR COLLECTION",color=TvPalette.Muted,fontSize=10.sp,letterSpacing=1.5.sp,modifier=Modifier.padding(8.dp))
             GuideButton("★ Favorites · ${channels.count{it.id in preferences.favorites}}",selected=="favorites",modifier=if(selected=="favorites")Modifier.focusRequester(groupFocus)else Modifier){choose("favorites")}
             Row{TextButton(onClick={editing=CustomGroup("","",emptySet())}){Text("+ New")};TextButton(onClick={arranging=true}){Text("Manage")}}
             LazyColumn(state=state.groupScroll,verticalArrangement=Arrangement.spacedBy(3.dp)){
@@ -146,8 +148,9 @@ class GuideUiState {
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()){
-          val previewHeight=(maxHeight*0.28f).coerceIn(100.dp,180.dp)
+          val previewHeight=(maxHeight*0.30f).coerceIn(100.dp,180.dp)
           Column(Modifier.fillMaxSize()){
+            MediaHeader()
             preview(previewHeight)
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
                 TextButton(onClick={navigationOpen=!navigationOpen}){Text(if(navigationOpen)"Hide groups" else "‹ Groups")}
@@ -166,7 +169,7 @@ class GuideUiState {
                             IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},enabled=!saving,modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
                             Box(Modifier.weight(1f)){GuideButton(c.name,modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
                         }
-                        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().background(TvPalette.Programme)){
+                        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().background(TvPalette.Track,RoundedCornerShape(6.dp))){
                             val width=maxWidth
                             val timelineFocus=remember{FocusRequester()}
                             var timelineFocused by remember{mutableStateOf(false)}
@@ -185,14 +188,14 @@ class GuideUiState {
                                     else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
                                 }
                             }
-                            if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(TvPalette.Accent))
+                            if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(TvPalette.Signal))
                             }
                         }
                     }
                 }
                 if(filtered.isEmpty())item{Text("No channels in this view. Edit the group to add channels.",Modifier.padding(20.dp))}
             }
-            Text("${filtered.size} channels · ↑↓ Channels · ←→ Programme times",style=MaterialTheme.typography.bodySmall)
+            Text("${filtered.size} channels  ·  ↑↓ Browse  ·  ←→ Timeline  ·  OK Watch",color=TvPalette.Muted,style=MaterialTheme.typography.labelSmall,modifier=Modifier.padding(top=6.dp))
             if(message.isNotEmpty())Text(message,style=MaterialTheme.typography.bodySmall)
           }
         }
@@ -224,7 +227,7 @@ class GuideUiState {
 @Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, onFocused:()->Unit={}, action: ()->Unit){
     var focused by remember{mutableStateOf(false)}
     TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=48.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 0.dp,if(focused)TvPalette.Accent else Color.Transparent,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
-        Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyMedium,modifier=Modifier.fillMaxWidth())
+        Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=2,overflow=TextOverflow.Ellipsis,fontWeight=if(focused || selected)FontWeight.SemiBold else FontWeight.Normal,style=MaterialTheme.typography.bodyMedium,modifier=Modifier.fillMaxWidth())
     }
 }
 
