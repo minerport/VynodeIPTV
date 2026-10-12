@@ -1,6 +1,6 @@
 # VynodeIPTV
 
-Self-hosted IPTV server, browser player, and Android TV companion. **Server and Android preview 0.8.0.**
+Self-hosted IPTV server, browser player, and Android TV companion. **Server preview 0.8.0 · Android preview 0.8.1.**
 
 The server accepts your Xtream connection, imports channels/groups and EPG, and supplies authenticated HLS to each player. Android can use the server as its streaming middleware or connect directly in standalone mode. No subscriptions, channels or provider credentials are included.
 

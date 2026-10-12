@@ -42,7 +42,6 @@ class MainActivity: ComponentActivity() {
     private var status by mutableStateOf("Choose how to connect")
     private var current by mutableStateOf<Channel?>(null)
     private var fullScreen by mutableStateOf(false)
-    private var guide by mutableStateOf("")
     private val slots=mutableStateListOf<Channel?>(null,null,null,null,null,null)
     private val engines=mutableStateMapOf<Int,PlaybackEngine>()
     private val slotStatus=mutableStateMapOf<Int,String>()
@@ -116,7 +115,7 @@ class MainActivity: ComponentActivity() {
         audio()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
-    private fun selectSlot(index:Int){selectedSlot=index;current=slots[index];status=slotStatus[index].orEmpty();guide=guideState.cache[current?.id]?.second?.firstOrNull()?.title.orEmpty();audio();saveScene()}
+    private fun selectSlot(index:Int){selectedSlot=index;current=slots[index];status=slotStatus[index].orEmpty();audio();saveScene()}
     private fun play(c: Channel){
         val repo=repository?:return
         val existing=slots.indexOfFirst{it?.id==c.id}
@@ -125,7 +124,6 @@ class MainActivity: ComponentActivity() {
         val index=selectedSlot;val previous=engines.remove(index)?.close();previous?.let{trackClose(it)};slots[index]=c;current=c;fullScreen=!multiEnabled;multiView=multiEnabled
         saveScene();val ticket=requests.begin(index)
         scope.launch{previous?.join();closing?.join();if(requests.accepts(ticket) && slots[index]?.id==c.id)startSlot(index,c,repo)}
-        guide="Loading guide…";scope.launch{val text=runCatching{repo.guide(c)}.getOrDefault("Guide unavailable");if(current?.id==c.id)guide=text}
     }
     override fun onStop(){backgrounded=true;requests.suspendAll();val jobs=engines.values.map{it.close()};trackClose(scope.launch{jobs.joinAll()});engines.clear();super.onStop()}
     override fun onStart(){super.onStart();guideState.start.longValue=System.currentTimeMillis()/1800000*1800000;if(backgrounded){backgrounded=false;val epoch=requests.epoch;scope.launch{closing?.join();if(backgrounded || epoch!=requests.epoch)return@launch;ensureStreams()}}}
@@ -190,10 +188,22 @@ class MainActivity: ComponentActivity() {
         if(healthOpen)PlaybackHealthDialog(engines.map{(i,e)->(slots[i]?.name?:"Panel ${i+1}") to e},catalogMetrics){healthOpen=false}
         val c=current
         BackHandler(enabled=fullScreen || (!multiView && multiEnabled)){
-            if(fullScreen){fullScreen=false;multiView=multiEnabled;audio()} else if(multiEnabled){multiView=true}
+            if(fullScreen){if(!multiEnabled)current?.let{guideState.returnChannel.value=it.id;guideState.navigationOpen.value=false};fullScreen=false;multiView=multiEnabled;audio()} else if(multiEnabled){multiView=true}
         }
         if(c!=null && fullScreen){
             var overlay by remember(c.id){mutableStateOf(true)}
+            var liveProgrammes by remember(c.id){mutableStateOf(guideState.cache[c.id]?.second.orEmpty())}
+            var liveNow by remember(c.id){mutableLongStateOf(System.currentTimeMillis())}
+            LaunchedEffect(c.id,repository){
+                while(true){
+                    liveNow=System.currentTimeMillis()
+                    try{liveProgrammes=repository?.programmes(c).orEmpty()}
+                    catch(e:CancellationException){throw e}
+                    catch(_:Exception){} // Retain this channel's known listings on transient failure.
+                    liveNow=System.currentTimeMillis()
+                    delay(30000)
+                }
+            }
             LaunchedEffect(c.id){delay(3500);overlay=false}
             Box(Modifier.fillMaxSize()){
                 AndroidView(factory={PlayerView(it).apply{
@@ -202,7 +212,7 @@ class MainActivity: ComponentActivity() {
                     requestFocus()
                 }},update={bindPlaybackView(it,engine)},onRelease={bindPlaybackView(it,null)},modifier=Modifier.fillMaxSize())
                 if(overlay)Column(Modifier.fillMaxWidth().background(Color(0xBB101216)).padding(16.dp)){
-                    Text(c.name,style=MaterialTheme.typography.titleMedium);Text(status,style=MaterialTheme.typography.bodySmall);Text(guide.lines().firstOrNull().orEmpty(),style=MaterialTheme.typography.bodySmall)
+                    Text(c.name,style=MaterialTheme.typography.titleMedium);Text(status,style=MaterialTheme.typography.bodySmall);Text(currentProgramme(liveProgrammes,liveNow)?.title?:"No EPG data",style=MaterialTheme.typography.bodySmall)
                 }
             };return
         }

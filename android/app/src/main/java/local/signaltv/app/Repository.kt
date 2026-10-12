@@ -46,7 +46,7 @@ interface Repository {
     suspend fun heartbeat(id: String): Playback
     suspend fun stop(id: String)
     suspend fun programmes(channel: Channel): List<Programme>
-    suspend fun guide(channel: Channel): String = programmes(channel).take(3).joinToString("\n") { it.title }.ifEmpty { "No programme information" }
+    suspend fun guide(channel: Channel): String = currentProgramme(programmes(channel),System.currentTimeMillis())?.title?:"No EPG data"
 }
 class ServerRepository(override val profile: Profile): Repository {
     private suspend fun api(path: String, method: String = "GET", body: JSONObject? = null) = request(profile.base + "/api/v1" + path, profile.token,method,body)

@@ -37,6 +37,7 @@ import java.time.format.DateTimeFormatter
 private fun clock(value: Long)=DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(value))
 
 class GuideUiState {
+    val returnChannel=mutableStateOf<String?>(null)
     val navigationOpen=mutableStateOf(true)
     val focusedChannel=mutableStateOf<Channel?>(null)
     val focusedProgramme=mutableStateOf<Programme?>(null)
@@ -57,6 +58,7 @@ class GuideUiState {
     val scope=rememberCoroutineScope()
     var navigationOpen by state.navigationOpen
     val firstChannel=remember{FocusRequester()}
+    val returnFocus=remember{FocusRequester()}
     val groupFocus=remember{FocusRequester()}
     var focusGuide by remember{mutableStateOf(false)}
     var groups by state.groups
@@ -86,6 +88,18 @@ class GuideUiState {
     fun savePreferences(next: GuidePreferences){if(saving)return;saving=true;scope.launch{try{store.savePreferences(next);preferences=next}catch(e:Exception){message=e.message?:"Could not save preferences"}finally{saving=false}}}
     fun choose(id:String){selected=id;navigationOpen=false;scope.launch{state.channelScroll.scrollToItem(0);focusGuide=true}}
     BackHandler(enabled=!navigationOpen && editing==null && !arranging){navigationOpen=true}
+    LaunchedEffect(state.returnChannel.value,filtered){
+        val id=state.returnChannel.value?:return@LaunchedEffect
+        val index=filtered.indexOfFirst{it.id==id}
+        if(index<0){
+            if(channels.any{it.id==id}){selected="all";query=""}else state.returnChannel.value=null
+            return@LaunchedEffect
+        }
+        state.channelScroll.scrollToItem(index)
+        withFrameNanos{}
+        returnFocus.requestFocus()
+        state.returnChannel.value=null
+    }
     LaunchedEffect(focusGuide,filtered){if(focusGuide && filtered.isNotEmpty()){withFrameNanos{};firstChannel.requestFocus();focusGuide=false}}
     LaunchedEffect(navigationOpen){if(navigationOpen){
         val index=groupRows.filter{it.first !in preferences.hiddenGroups}.indexOfFirst{it.first==selected}
@@ -150,7 +164,7 @@ class GuideUiState {
                     Row(Modifier.fillMaxWidth().height(52.dp),horizontalArrangement=Arrangement.spacedBy(3.dp)){
                         Row(Modifier.width(170.dp)){
                             IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},enabled=!saving,modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
-                            Box(Modifier.weight(1f)){GuideButton(c.name,modifier=if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
+                            Box(Modifier.weight(1f)){GuideButton(c.name,modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
                         }
                         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().background(TvPalette.Programme)){
                             val width=maxWidth

@@ -37,3 +37,7 @@ fun decodeEpgText(value:String):String {
         if(text.any{it.isISOControl() && it!='\n' && it!='\r' && it!='\t'})value else text
     }.getOrDefault(value)
 }
+
+/** Live playback metadata must never use the first historical or future listing. */
+fun currentProgramme(programmes:List<Programme>,now:Long):Programme? =
+    programmes.filter{it.start<=now && it.end>now}.maxByOrNull{it.start}

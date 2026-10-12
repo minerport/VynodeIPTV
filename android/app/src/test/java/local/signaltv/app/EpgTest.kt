@@ -5,6 +5,15 @@ import org.junit.Test
 import java.time.ZoneId
 
 class EpgTest {
+    @Test fun liveMetadataIgnoresHistoryFutureAndExpiredProgrammes(){
+        val past=Programme("Past",0,50);val current=Programme("Current",50,150);val future=Programme("Future",150,200)
+        val entries=listOf(past,future,current)
+        assertEquals(current,currentProgramme(entries,100))
+        assertEquals(future,currentProgramme(entries,150))
+        assertNull(currentProgramme(entries,200))
+        assertNull(currentProgramme(listOf(past,future),100))
+    }
+
     @Test fun fullGuideIsPreferredAndShortGuideIsFallback()=kotlinx.coroutines.runBlocking {
         val calls=mutableListOf<String>()
         val history=Programme("Past",0,50);val current=Programme("Current",50,150);val future=Programme("Future",150,200)
