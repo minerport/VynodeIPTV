@@ -1,6 +1,7 @@
 import {VideoWall} from './wall.js';
 import {providerGroups,inGroup,clipProgramme,orderedGroups,virtualRange} from './guide.js';
-const $=id=>document.getElementById(id),duration=3*3600000;
+const $=id=>document.getElementById(id),phoneLayout=matchMedia('(max-width:700px)');
+let duration=phoneLayout.matches?3600000:3*3600000;
 let token=sessionStorage.getItem('iptv-admin')||'',channels=[],customGroups=[],selected='all',start=Math.floor(Date.now()/1800000)*1800000,guide=[],guideRevision=0,timer;
 let preferences={favorites:[],groupOrder:[],hiddenGroups:[]},arranging=false,preferenceBusy=false,scrollTimer;const guideCache=new Map();let lastWindow="";
 let active=null,authSetup=false;
@@ -30,7 +31,7 @@ function renderGroups(){
 function renderGuide(force=true){
  const list=filtered(),viewport=$('guide-viewport');if(viewport.scrollTop>Math.max(0,list.length*62-viewport.clientHeight))viewport.scrollTop=Math.max(0,list.length*62-viewport.clientHeight);
  const r=range(),signature=[selected,$('search').value,start,r.start,r.end,list.length].join('|');if(!force&&signature===lastWindow)return;lastWindow=signature;const focus=document.activeElement?.dataset.focusKey;
- $('time-labels').replaceChildren(...Array.from({length:6},(_,i)=>el('span',time(start+i*1800000))));$('guide-date').textContent=new Date(start).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
+ $('time-labels').replaceChildren(...Array.from({length:duration/1800000},(_,i)=>el('span',time(start+i*1800000))));$('guide-date').textContent=new Date(start).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
  const target=$('guide-rows');target.replaceChildren();const spacer=height=>{const e=el('div');e.style.height=height+'px';e.setAttribute('aria-hidden','true');return e};target.append(spacer(r.top));
  for(const c of list.slice(r.start,r.end)){
   const row=el('div',null,'guide-row'),label=el('div',null,'channel-cell');
@@ -53,6 +54,7 @@ function scheduleGuide(){clearTimeout(scrollTimer);scrollTimer=setTimeout(()=>lo
 async function loadCatalog(){[channels,customGroups,preferences]=await Promise.all([api('/channels'),api('/groups'),api('/guide/preferences')]);$('channel-count').textContent=channels.length;renderGroups();renderGuide();await loadGuide()}
 const wall=new VideoWall({host:$('wall'),api,onError:e=>message(e.message,true),onChange:w=>{
  active=w.selected?.session||null;
+ if(phoneLayout.matches&&w.selected?.status.startsWith('Select Enable audio'))$('player-controls').open=true;
  $('player-placeholder').hidden=w.tiles.length>0;
  $('stop-player').disabled=!w.tiles.length;
  $('playing-title').textContent=w.selected?.channel.name||'Choose a channel';
@@ -115,3 +117,10 @@ function endGuideDrag(e){if(drag?.id===e.pointerId){if(guideViewport.hasPointerC
 guideViewport.addEventListener('pointerup',endGuideDrag);guideViewport.addEventListener('pointercancel',endGuideDrag);
 guideViewport.addEventListener('click',e=>{if(suppressGuideClick){e.preventDefault();e.stopImmediatePropagation()}},true);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token&&!$('dashboard').hidden)$('now').click()});
+
+// Phone drawers and a shorter visible timeline leave channel names on screen.
+function closeGroups(){setGroups(false);$('show-groups').focus({preventScroll:true})}
+$('close-groups').onclick=closeGroups;$('group-backdrop').onclick=closeGroups;
+function adaptGuide(){$('player-controls').open=!phoneLayout.matches;duration=phoneLayout.matches?3600000:3*3600000;if(phoneLayout.matches)setGroups(false);else{renderGuide();scheduleGuide()}}
+phoneLayout.addEventListener('change',adaptGuide);
+if(phoneLayout.matches){$('player-controls').open=false;setGroups(false)}

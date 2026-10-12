@@ -10,3 +10,27 @@ main{max-width:1800px;padding:20px 3vw}header{padding:16px 3vw}header .health{ma
 .preview-stack{min-width:0}.preview-stack>.toolbar{margin:8px 0;gap:8px}.preview-stack button{padding:8px 10px;font-size:12px}.preview-stack .wall-controls{margin-bottom:0}.preview-stack .wall-controls label{display:flex;align-items:center;gap:8px;margin:0}.preview-stack .wall-controls select{margin:0}.watch-info .muted{font-size:12px}#wall-count{color:var(--muted)}
 
 .programme-track{touch-action:pan-y;cursor:grab}.programme-track:active{cursor:grabbing}
+
+/* Phone adaptations are isolated from the desktop TV layout. */
+#close-groups,#group-backdrop,#player-controls>summary{display:none}
+@media(max-width:700px){
+  header{padding:12px 16px;gap:10px}header strong{font-size:13px}header .mark{font-size:28px}header .badge{margin-left:auto;padding:6px;font-size:9px;letter-spacing:1px}header .health{display:none}
+  main{padding:12px max(12px,env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+  button,input,select{min-height:44px}input,select{font-size:16px}input[type=checkbox]{min-height:24px;min-width:24px;flex:none}
+  #dashboard>nav{gap:8px}#dashboard>nav>button{flex:1;padding:10px 8px}#dashboard>nav #logout{flex-basis:100%;margin:0;text-align:right;min-height:36px}#channel-count,#dashboard>nav>.muted{display:none}
+  #live{display:flex;flex-direction:column;gap:12px}.icon-rail{flex-direction:row;justify-content:space-around;width:100%;padding:4px;gap:4px}.icon-rail button{width:48px;height:44px}.icon-rail button:last-child{margin:0}
+  #live>aside{position:fixed;z-index:31;inset:12px auto 12px 12px;width:min(360px,calc(100vw - 24px));max-height:none;border-radius:12px;background:#1c2b40;padding:16px;overscroll-behavior:contain}
+  #live.groups-open>#group-backdrop{display:block;position:fixed;inset:0;z-index:30;width:100%;height:100%;background:#0009;border-radius:0;padding:0}
+  #close-groups{display:inline-block;margin-bottom:12px;float:right}#live>aside>.section-head{clear:both;display:flex}
+  #groups .move-group{width:44px;min-width:44px}#groups .visibility-group{width:44px;min-width:44px}#groups button{padding:10px 6px}.group-entry>button:first-child{overflow-wrap:anywhere}
+  .watch{display:flex;flex-direction:column;gap:12px;margin:0}.preview-stack{width:100%}.screen{margin:0}.watch-info{padding:0;width:100%}.watch h1{font-size:21px;letter-spacing:-.4px;margin:0}.watch-info .eyebrow{display:none}.watch-info p{margin:5px 0;font-size:13px}.watch-info>p:last-child{display:none}
+  .preview-stack>.toolbar{margin:8px 0;gap:8px}.preview-stack>.toolbar>#fullscreen{width:100%;min-height:44px}.preview-stack .wall-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.wall-controls>label{grid-column:1/-1}.wall-controls select{flex:1;min-width:0}.wall-controls>#wall-count{grid-column:1/-1;font-size:12px}.preview-stack button{min-height:44px;font-size:13px}
+  #player-controls>summary{display:list-item;cursor:pointer;min-height:44px;padding:12px 8px;color:var(--muted);font-size:13px}#player-controls[open]{padding-bottom:8px;border-bottom:1px solid var(--line)}
+  #back-wall{opacity:1;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));min-height:44px}#wall.expanded{height:100dvh}
+  .guide-section{padding:12px 0 0}.guide-section>.toolbar{gap:6px;margin-bottom:10px}.guide-section>.toolbar h2{font-size:20px;max-width:100%;overflow-wrap:anywhere}#search{width:100%;flex-basis:100%;padding:10px;font-size:16px}#guide-date{width:100%;font-size:12px}
+  .guide-scroll{overflow:visible}.guide-heading,.guide-row{grid-template-columns:132px minmax(0,1fr);min-width:0;gap:3px}.guide-heading{font-size:10px;padding-right:16px;margin:10px 0 6px}.guide-heading>div{min-width:0}.guide-heading>div>span{min-width:0;white-space:nowrap}
+  #guide-viewport{width:100%;min-width:0;height:52vh;height:52dvh;min-height:248px;scrollbar-gutter:auto;overscroll-behavior-y:contain}.channel-cell .favorite{width:40px;padding:0}.channel-cell .channel-name{font-size:12px;padding:4px;white-space:normal;overflow-wrap:anywhere}.programme{padding:5px;font-size:12px;white-space:normal;line-height:1.2}.programme small{font-size:9px;margin-top:3px;white-space:nowrap}.no-guide{padding:8px;font-size:11px}
+  .columns,.split{grid-template-columns:minmax(0,1fr);gap:8px}.panel{padding:16px;min-width:0}.panel h2{font-size:21px}.rows>div{flex-wrap:wrap;align-items:flex-start}.rows>div>span{min-width:0;max-width:100%;overflow-wrap:anywhere}.rows>div>span:last-child{display:flex;flex-wrap:wrap;gap:8px}.rows details{max-width:100%}.stats{gap:8px;margin:16px 0}.stats>div{padding:14px}
+  dialog{width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:16px;overflow-y:auto}#group-members{max-height:40dvh}#group-members label{overflow-wrap:anywhere;min-width:0}#group-members input{flex:none}#message{width:calc(100vw - 24px);padding:12px;bottom:max(12px,env(safe-area-inset-bottom));overflow-wrap:anywhere}
+  #login h1{font-size:32px;letter-spacing:-1px}#login button{width:100%}
+}
