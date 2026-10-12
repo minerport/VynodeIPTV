@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>VynodeIPTV</Name>
+  <Repository>ghcr.io/minerport/vynodeiptv:0.6.1</Repository>
+  <Registry>https://github.com/minerport/VynodeIPTV/pkgs/container/vynodeiptv</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
+  <Project>https://github.com/minerport/VynodeIPTV</Project>
+  <TemplateURL>https://raw.githubusercontent.com/minerport/VynodeIPTV/main/deploy/unraid/iptv-server.xml</TemplateURL>
+  <Overview>Preview release for x86-64 Unraid. Native Shield companion with Xtream providers, guide grids, custom channel groups, independent browser video walls, output health diagnostics and server-side HLS remux or CPU conversion. GPU transcoding not implemented. Read /config/admin.token for first login. Appdata and transcode directories must be writable by UID/GID 10001.</Overview>
+  <Category>MediaApp:Video</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <ExtraParams>--security-opt=no-new-privileges --cap-drop=ALL --pids-limit=128</ExtraParams>
+  <Config Name="Web and media port" Target="8080" Default="8580" Mode="tcp" Description="LAN web admin and authenticated media" Type="Port" Display="always" Required="true" Mask="false">8580</Config>
+  <Config Name="Configuration" Target="/config" Default="/mnt/user/appdata/vynodeiptv" Mode="rw" Description="Encrypted state and admin token; UID 10001 must have write access" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/vynodeiptv</Config>
+  <Config Name="Scratch" Target="/transcode" Default="/mnt/cache/appdata/vynodeiptv-transcode" Mode="rw" Description="Use an existing SSD pool path, writable by UID 10001" Type="Path" Display="always" Required="true" Mask="false">/mnt/cache/appdata/vynodeiptv-transcode</Config>
+  <Config Name="Demo channel" Target="IPTV_DEMO" Default="0" Mode="" Description="Set 1 to enable synthetic signal testing" Type="Variable" Display="always" Required="false" Mask="false">0</Config>
+  <Config Name="Timezone" Target="TZ" Default="America/New_York" Mode="" Description="Timezone" Type="Variable" Display="always" Required="false" Mask="false">America/New_York</Config>
+</Container>

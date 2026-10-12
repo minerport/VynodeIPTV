@@ -1,0 +1,7 @@
+# Only the server source and container packaging enter the build context.
+**
+!server/
+!server/**
+!deploy/
+!deploy/docker/
+!deploy/docker/Dockerfile

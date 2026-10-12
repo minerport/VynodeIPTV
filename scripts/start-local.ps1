@@ -1,0 +1,23 @@
+param([switch]$Build)
+$ErrorActionPreference = 'Stop'
+$projectRoot = Split-Path -Parent $PSScriptRoot
+Push-Location $projectRoot
+try {
+    $composeArgs = @('compose','-p','signal-iptv','-f','deploy/docker/compose.yaml','up','-d')
+    if ($Build) { $composeArgs += '--build' }
+    & docker @composeArgs
+    if ($LASTEXITCODE -ne 0) { throw 'Docker startup failed. For the first build, use -Build.' }
+    $ready = $false
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        try { $response = Invoke-RestMethod 'http://127.0.0.1:8580/healthz'; if ($response.status -eq 'ok') {$ready=$true; break} } catch {}
+        Start-Sleep -Milliseconds 500
+    }
+    if (-not $ready) { throw 'Server did not become ready.' }
+    $tokenFolder = Join-Path $env:LOCALAPPDATA 'SignalTV\config'
+    New-Item -ItemType Directory -Force $tokenFolder | Out-Null
+    $tokenFile = Join-Path $tokenFolder 'admin.token'
+    & docker cp 'signal-iptv-iptv-1:/config/admin.token' $tokenFile
+    if ($LASTEXITCODE -ne 0) { throw 'Could not export the administrator token.' }
+    Write-Output 'Signal TV server: http://localhost:8580'
+    Write-Output "Administrator token file: $tokenFile"
+} finally { Pop-Location }

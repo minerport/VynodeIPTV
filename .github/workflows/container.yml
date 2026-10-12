@@ -1,0 +1,74 @@
+name: Container
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+      - name: Go race tests and vet
+        run: docker run --rm -v "$PWD/server:/src" -w /src golang:1.27.2-bookworm sh -c 'go test -race ./... && go vet ./...'
+      - name: Browser behavior tests
+        run: npm test
+      - name: Build Unraid image
+        run: docker build -f deploy/docker/Dockerfile -t vynodeiptv:ci .
+      - name: Start isolated synthetic server
+        run: docker run -d --name vynodeiptv-ci -p 127.0.0.1:8580:8080 -e IPTV_DEMO=1 vynodeiptv:ci
+      - name: Wait for server
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8580/healthz; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Authenticated media and worker recovery smoke
+        env:
+          IPTV_TEST_CONTAINER: vynodeiptv-ci
+        run: node scripts/verify-server.mjs
+      - name: Remove isolated test container and volumes
+        if: always()
+        run: docker rm -f -v vynodeiptv-ci || true
+  publish:
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        id: meta
+        with:
+          images: ghcr.io/minerport/vynodeiptv
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

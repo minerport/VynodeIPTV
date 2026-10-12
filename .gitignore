@@ -1,0 +1,21 @@
+.local/
+artifacts/
+android/.gradle/
+android/local.properties
+android/**/build/
+*.log
+.idea/
+node_modules/
+# Keep credentials, runtime state and device signing keys local.
+.env
+.env.*
+!.env.example
+**/admin.token
+**/encryption.key
+**/state.enc
+**/state.tmp
+**/*.jks
+**/*.keystore
+/data/
+/config/
+/transcode/

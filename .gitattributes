@@ -1,0 +1,11 @@
+* text=auto
+*.go text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xml text eol=lf
+Dockerfile text eol=lf
+android/gradlew text eol=lf
+*.jar binary
