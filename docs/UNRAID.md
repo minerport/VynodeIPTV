@@ -45,3 +45,15 @@ On Android, choose Companion mode and enter the same LAN URL. For HTTP, enable t
 No PUID/PGID support, GPU devices, privileged access or Docker socket mount is needed. Physical Unraid/Shield operation and long-duration stability are not yet claimed. Keep access on your trusted LAN or an authenticated private network.
 
 References: [Unraid container configuration](https://docs.unraid.net/unraid-os/using-unraid-to/run-docker-containers/managing-and-customizing-containers/) and [GitHub Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+
+
+## Install from the release archive instead
+
+The [0.6.1 release](https://github.com/minerport/VynodeIPTV/releases/tag/v0.6.1) also includes the container archive, checksum and XML template. Download `VynodeIPTV-0.6.1-linux-amd64.tar.gz` and `SHA256SUMS-server-0.6.1.txt` into the same directory, then run:
+
+```sh
+sha256sum -c SHA256SUMS-server-0.6.1.txt
+docker load -i VynodeIPTV-0.6.1-linux-amd64.tar.gz
+```
+
+Continue with the template above; the loaded image uses its expected versioned repository name. Normal registry installation is public and requires no GitHub login.
