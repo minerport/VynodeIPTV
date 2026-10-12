@@ -207,8 +207,11 @@ func parseEPG(r io.Reader, channels []Channel, now time.Time) ([]Programme, erro
 		}
 		a, e := xmlTime(p.Start)
 		b, e2 := xmlTime(p.Stop)
-		if e != nil || e2 != nil || !b.After(a) || b.Before(now.Add(-24*time.Hour)) || a.After(now.Add(7*24*time.Hour)) {
+		if e != nil || e2 != nil || !b.After(a) || b.Before(now.Add(-7*24*time.Hour)) || a.After(now.Add(7*24*time.Hour)) {
 			continue
+		}
+		if strings.TrimSpace(p.Title) == "" {
+			p.Title = "Untitled programme"
 		}
 		if len(p.Title) > 4096 {
 			p.Title = p.Title[:4096]

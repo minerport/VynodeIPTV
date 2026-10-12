@@ -24,14 +24,14 @@ import androidx.compose.ui.window.PopupProperties
     val shape=RoundedCornerShape(10.dp)
     Box(Modifier.size(56.dp),contentAlignment=Alignment.Center){
         IconButton(onClick=action,modifier=Modifier.size(48.dp).onFocusChanged{focused=it.isFocused}
-            .background(if(focused)Color(0xFFDCE8F5)else Color.Transparent,shape)
+            .background(if(focused)TvPalette.Accent else Color.Transparent,shape)
             .border(if(focused)2.dp else 0.dp,if(focused)Color.White else Color.Transparent,shape)){
-            Icon(painterResource(icon),contentDescription=label,modifier=Modifier.size(26.dp),tint=if(focused)Color(0xFF152234)else Color(0xFFDCE8F5))
+            Icon(painterResource(icon),contentDescription=label,modifier=Modifier.size(26.dp),tint=if(focused)TvPalette.OnAccent else TvPalette.Accent)
         }
         if(focused && showLabel){
             val offset=with(LocalDensity.current){60.dp.roundToPx()}
             Popup(alignment=Alignment.CenterStart,offset=IntOffset(offset,0),properties=PopupProperties(focusable=false)){
-                Surface(shape=shape,color=Color(0xFF101C2C),shadowElevation=8.dp){
+                Surface(shape=shape,color=TvPalette.Surface,shadowElevation=8.dp){
                     Text(label,Modifier.padding(horizontal=14.dp,vertical=10.dp),maxLines=1,softWrap=false,style=MaterialTheme.typography.bodyMedium)
                 }
             }

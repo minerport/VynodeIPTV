@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -99,7 +100,7 @@ class GuideUiState {
         val missing=visible.filter{System.currentTimeMillis()-(cache[it.id]?.first?:0)>=300000 || (repo is ServerRepository && state.cacheWindows[it.id]!=windowStart)}
         if(repo is ServerRepository){
             try{repo.programmeBatch(missing,windowStart,windowStart+43200000).forEach{(id,entries)->cache[id]=System.currentTimeMillis() to entries;state.cacheWindows[id]=windowStart};while(cache.size>300)cache.entries.minByOrNull{it.value.first}?.key?.let{cache.remove(it);state.cacheWindows.remove(it)}}
-            catch(e:CancellationException){throw e}catch(_:Exception){message="Guide temporarily unavailable"}
+            catch(e:CancellationException){throw e}catch(_:Exception){missing.forEach{c->cache[c.id]=System.currentTimeMillis() to cache[c.id]?.second.orEmpty();state.cacheWindows[c.id]=windowStart};message="EPG unavailable · retrying automatically"}
             return@LaunchedEffect
         }
         kotlinx.coroutines.supervisorScope {
@@ -107,13 +108,13 @@ class GuideUiState {
             missing.forEach{c->launch{
                 permits.acquire()
                 try{cache[c.id]=System.currentTimeMillis() to repo.programmes(c);if(cache.size>300)cache.entries.minByOrNull{it.value.first}?.key?.let{cache.remove(it);state.cacheWindows.remove(it)}}
-                catch(e:CancellationException){throw e}catch(_:Exception){message="Some guide listings are unavailable. Channels can still play."}
+                catch(e:CancellationException){throw e}catch(_:Exception){cache[c.id]=System.currentTimeMillis() to cache[c.id]?.second.orEmpty();message="Some EPG data is unavailable. Channels can still play."}
                 finally{permits.release()}
             }}
         }
     }
     Row(Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-        if(navigationOpen)Column(Modifier.width(64.dp).fillMaxHeight().background(Color(0xFF202C3D)).padding(4.dp)){
+        if(navigationOpen)Column(Modifier.width(64.dp).fillMaxHeight().background(TvPalette.Surface).padding(4.dp)){
             Text("TV",Modifier.padding(8.dp),style=MaterialTheme.typography.titleLarge)
             RailIconButton(R.drawable.rail_search,"Search channels",showLabel=!searching){searchDraft=query;searching=true}
             RailIconButton(R.drawable.rail_favorite,"Favorites"){choose("favorites")}
@@ -122,7 +123,7 @@ class GuideUiState {
             Spacer(Modifier.weight(1f))
             RailIconButton(R.drawable.rail_settings,"Connection settings",action=onSettings)
         }
-        if(navigationOpen)Column(Modifier.width(180.dp).fillMaxHeight().background(Color(0xCC1C2A3D)).padding(8.dp)){
+        if(navigationOpen)Column(Modifier.width(180.dp).fillMaxHeight().background(TvPalette.Surface).padding(8.dp)){
             Text("CHANNEL GROUPS",style=MaterialTheme.typography.labelMedium,modifier=Modifier.padding(8.dp))
             GuideButton("★ Favorites · ${channels.count{it.id in preferences.favorites}}",selected=="favorites",modifier=if(selected=="favorites")Modifier.focusRequester(groupFocus)else Modifier){choose("favorites")}
             Row{TextButton(onClick={editing=CustomGroup("","",emptySet())}){Text("+ New")};TextButton(onClick={arranging=true}){Text("Manage")}}
@@ -148,27 +149,29 @@ class GuideUiState {
                 items(filtered,key={it.id}){c->
                     Row(Modifier.fillMaxWidth().height(52.dp),horizontalArrangement=Arrangement.spacedBy(3.dp)){
                         Row(Modifier.width(170.dp)){
-                            IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},enabled=!saving,modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=Color(0xFFDCE6F2))}
+                            IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},enabled=!saving,modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
                             Box(Modifier.weight(1f)){GuideButton(c.name,modifier=if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
                         }
-                        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().background(Color(0xFF25384F))){
+                        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().background(TvPalette.Programme)){
                             val width=maxWidth
                             val timelineFocus=remember{FocusRequester()}
                             var timelineFocused by remember{mutableStateOf(false)}
                             fun describeTime(){state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.end>start}}
                             val pixels=with(LocalDensity.current){width.toPx()}
                             val dragState=rememberDraggableState{delta->shiftTime((-delta/pixels*5400000).toLong())}
-                            Box(Modifier.fillMaxSize().border(if(timelineFocused)2.dp else 0.dp,if(timelineFocused)Color(0xFFDCE6F2)else Color.Transparent).focusRequester(timelineFocus).onFocusChanged{timelineFocused=it.isFocused;if(it.isFocused)describeTime()}.onPreviewKeyEvent{event->
+                            Box(Modifier.fillMaxSize().border(if(timelineFocused)2.dp else 0.dp,if(timelineFocused)TvPalette.Accent else Color.Transparent).focusRequester(timelineFocus).onFocusChanged{timelineFocused=it.isFocused;if(it.isFocused)describeTime()}.onPreviewKeyEvent{event->
                                 if(event.type==KeyEventType.KeyDown && (event.key==Key.DirectionLeft || event.key==Key.DirectionRight)){
                                     shiftTime(if(event.key==Key.DirectionRight)1800000 else -1800000);describeTime();timelineFocus.requestFocus();true
                                 }else if(event.type==KeyEventType.KeyDown && (event.key==Key.Enter || event.key==Key.DirectionCenter)) {if(event.nativeKeyEvent.repeatCount==0)play(c);true}else false
                             }.focusable().draggable(dragState,Orientation.Horizontal).semantics{contentDescription="${c.name} programme timeline. Left and right browse times. Select plays live."}){
-                            val entries=cache[c.id]?.second.orEmpty().filter{it.end>start && it.start<start+5400000}
-                            if(entries.isEmpty())Text(if(cache.containsKey(c.id))"No programme information" else "Loading guide…",Modifier.padding(10.dp),style=MaterialTheme.typography.bodySmall)
-                            entries.forEach{p->val left=((p.start-start).coerceAtLeast(0)/5400000f);val right=((p.end-start).coerceAtMost(5400000)/5400000f)
-                                Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp)){GuideButton(p.title,p.start<=now && p.end>now,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}}
+                            guideCells(cache[c.id]?.second.orEmpty(),start,start+5400000).forEach{cell->
+                                val left=(cell.start-start)/5400000f;val right=(cell.end-start)/5400000f;val p=cell.programme
+                                Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp)){
+                                    if(p==null)Text(if(cache.containsKey(c.id))"No EPG data" else "Loading EPG…",Modifier.fillMaxSize().background(TvPalette.Track).padding(8.dp),color=TvPalette.Muted,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
+                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
+                                }
                             }
-                            if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(Color(0xFFDCE6F2)))
+                            if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(TvPalette.Accent))
                             }
                         }
                     }
@@ -206,8 +209,8 @@ class GuideUiState {
 
 @Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, onFocused:()->Unit={}, action: ()->Unit){
     var focused by remember{mutableStateOf(false)}
-    TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=48.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 0.dp,if(focused)Color(0xFFDCE6F2)else Color.Transparent).background(if(focused)Color(0xFFDCE8F5)else if(selected)Color(0xFF3B4553)else Color(0xFF25384F)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
-        Text(text,color=if(focused)Color(0xFF152234)else Color.White,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyMedium,modifier=Modifier.fillMaxWidth())
+    TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=48.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 0.dp,if(focused)TvPalette.Accent else Color.Transparent,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
+        Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyMedium,modifier=Modifier.fillMaxWidth())
     }
 }
 

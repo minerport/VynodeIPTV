@@ -70,11 +70,14 @@ class ServerRepository(override val profile: Profile): Repository {
 }
 class XtreamRepository(override val profile: Profile): Repository {
     private val epgSlots=Semaphore(3)
+    private var epgZone=java.time.ZoneId.systemDefault()
     override var connectionLimit: Int = 1
         private set
     private fun api(action: String) = Uri.parse(profile.base+"/player_api.php").buildUpon().appendQueryParameter("username",profile.username).appendQueryParameter("password",profile.password).apply { if(action.isNotEmpty())appendQueryParameter("action",action) }
     override suspend fun channels(): List<Channel> {
-        val account=JSONObject(request(api("").build().toString())).optJSONObject("user_info")
+        val auth=JSONObject(request(api("").build().toString()))
+        epgZone=runCatching{java.time.ZoneId.of(auth.optJSONObject("server_info")?.optString("timezone"))}.getOrDefault(java.time.ZoneId.systemDefault())
+        val account=auth.optJSONObject("user_info")
         require(account?.optInt("auth")==1) { "Provider rejected the login" }
         require(account.optString("status","Active").equals("Active",true)) { "Provider account is not active" }
         connectionLimit=account.optInt("max_connections",1).takeIf{it>0}?:1
@@ -87,14 +90,14 @@ class XtreamRepository(override val profile: Profile): Repository {
     override suspend fun heartbeat(id: String)=error("Standalone playback has no server session")
     override suspend fun stop(id: String) {}
     override suspend fun programmes(channel: Channel): List<Programme> = epgSlots.withPermit {
-        val a=JSONObject(request(api("get_short_epg").appendQueryParameter("stream_id",channel.id).appendQueryParameter("limit","30").build().toString())).optJSONArray("epg_listings")?:return@withPermit emptyList()
-        (0 until a.length()).mapNotNull { a.getJSONObject(it).let { p ->
-            val title=p.optString("title");val decoded=try{String(android.util.Base64.decode(title,android.util.Base64.DEFAULT),Charsets.UTF_8)}catch(_:Exception){title}
-            val start=p.optLong("start_timestamp",0)*1000;val end=p.optLong("stop_timestamp",p.optLong("end_timestamp",0))*1000
-            if(start>0 && end>start)Programme(decoded,start,end,decodeEpgText(p.optString("description")))else null
-        } }.sortedBy { it.start }
+        suspend fun fetch(action:String):List<Programme>{
+            val a=JSONObject(request(api(action).appendQueryParameter("stream_id",channel.id).apply{if(action=="get_short_epg")appendQueryParameter("limit","100")}.build().toString())).optJSONArray("epg_listings")?:return emptyList()
+            return (0 until a.length()).mapNotNull{index->val p=a.optJSONObject(index)?:return@mapNotNull null
+                val start=epgTime(p.optString("start_timestamp"),p.optString("start"),epgZone)
+                val end=epgTime(p.optString("stop_timestamp",p.optString("end_timestamp")),p.optString("end",p.optString("stop")),epgZone)
+                if(start>0 && end>start)Programme(decodeEpgText(p.optString("title")).ifBlank{"Untitled programme"},start,end,decodeEpgText(p.optString("description")))else null
+            }
+        }
+        providerEpg(System.currentTimeMillis()){fetch(it)}
     }
 }
-
-private fun decodeEpgText(value:String)=try{String(android.util.Base64.decode(value,android.util.Base64.DEFAULT),Charsets.UTF_8)}catch(_:Exception){value}
-data class Programme(val title: String, val start: Long, val end: Long, val description:String="")

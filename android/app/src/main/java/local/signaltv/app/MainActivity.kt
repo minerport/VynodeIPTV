@@ -66,7 +66,7 @@ class MainActivity: ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?){
         super.onCreate(savedInstanceState);secure=SecureProfile(this)
         restoreConnection()
-        setContent{MaterialTheme(colorScheme=darkColorScheme(primary=Color(0xFFDCE6F2),onPrimary=Color(0xFF18202B),background=Color(0xFF101216),surface=Color(0xFF20242B))){Surface(Modifier.fillMaxSize()){App()}}}
+        setContent{MaterialTheme(colorScheme=darkColorScheme(primary=TvPalette.Accent,onPrimary=TvPalette.OnAccent,secondary=TvPalette.Accent,onSecondary=TvPalette.OnAccent,background=TvPalette.Background,onBackground=TvPalette.Text,surface=TvPalette.Surface,onSurface=TvPalette.Text,surfaceVariant=TvPalette.Track,onSurfaceVariant=TvPalette.Muted,surfaceTint=TvPalette.Accent,primaryContainer=TvPalette.Live,onPrimaryContainer=TvPalette.Text,secondaryContainer=TvPalette.Surface,onSecondaryContainer=TvPalette.Text,tertiary=TvPalette.Accent,outline=TvPalette.Muted)){Surface(Modifier.fillMaxSize()){App()}}}
     }
     private fun restoreConnection(){try{unlockError=false;secure.load()?.let{profile=it;connect(it)}}catch(e:Exception){unlockError=true;status=e.message?:"Unable to unlock connection"}}
     private fun connect(p: Profile){
@@ -208,7 +208,7 @@ class MainActivity: ComponentActivity() {
         }
         if(multiView){MultiView();return}
         var settings by remember{mutableStateOf(false)}
-        Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF243A56),Color(0xFF111E30)))).padding(horizontal=24.dp,vertical=12.dp)){
+        Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(TvPalette.Glow,TvPalette.Background))).padding(horizontal=24.dp,vertical=12.dp)){
             if(profile==null)Text("SIGNAL TV · $status",style=MaterialTheme.typography.titleLarge)
             if(unlockError){Text(status);Button(onClick={restoreConnection()}){Text("Retry")};Button(onClick={secure.clear();unlockError=false;status="Choose how to connect"}){Text("Reset saved login")};return@Column}
             if(profile==null){Setup();return@Column}

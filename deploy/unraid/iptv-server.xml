@@ -11,7 +11,7 @@
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
   <Date>2026-10-12</Date>
-  <Changes>0.7.1: Responsive phone dashboard, channel-group drawer, compact player controls and readable mobile guide. Desktop layout retained. Latest tracks numbered releases.</Changes>
+  <Changes>0.8.0: Past/current/future EPG with explicit missing-data cells; seven-day supplied history retained. Android palette matches the web dashboard.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>
