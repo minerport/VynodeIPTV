@@ -13,11 +13,6 @@ try {
         Start-Sleep -Milliseconds 500
     }
     if (-not $ready) { throw 'Server did not become ready.' }
-    $tokenFolder = Join-Path $env:LOCALAPPDATA 'SignalTV\config'
-    New-Item -ItemType Directory -Force $tokenFolder | Out-Null
-    $tokenFile = Join-Path $tokenFolder 'admin.token'
-    & docker cp 'signal-iptv-iptv-1:/config/admin.token' $tokenFile
-    if ($LASTEXITCODE -ne 0) { throw 'Could not export the administrator token.' }
-    Write-Output 'Signal TV server: http://localhost:8580'
-    Write-Output "Administrator token file: $tokenFile"
+    Write-Output 'VynodeIPTV server: http://localhost:8580'
+    Write-Output 'Create or sign in to your administrator account in the WebUI.'
 } finally { Pop-Location }

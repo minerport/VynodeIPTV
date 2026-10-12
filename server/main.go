@@ -60,7 +60,7 @@ func main() {
 		_ = srv.Shutdown(shutdown)
 		app.close()
 	}()
-	log.Printf("IPTV foundation listening on %s; admin token is in %s (never logged)", srv.Addr, tokenPath)
+	log.Printf("VynodeIPTV listening on %s; create or sign in to your administrator account in the WebUI", srv.Addr)
 	if err = srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}

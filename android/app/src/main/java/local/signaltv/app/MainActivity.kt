@@ -128,7 +128,7 @@ class MainActivity: ComponentActivity() {
         guide="Loading guide…";scope.launch{val text=runCatching{repo.guide(c)}.getOrDefault("Guide unavailable");if(current?.id==c.id)guide=text}
     }
     override fun onStop(){backgrounded=true;requests.suspendAll();val jobs=engines.values.map{it.close()};trackClose(scope.launch{jobs.joinAll()});engines.clear();super.onStop()}
-    override fun onStart(){super.onStart();if(backgrounded){backgrounded=false;val epoch=requests.epoch;scope.launch{closing?.join();if(backgrounded || epoch!=requests.epoch)return@launch;ensureStreams()}}}
+    override fun onStart(){super.onStart();guideState.start.longValue=System.currentTimeMillis()/1800000*1800000;if(backgrounded){backgrounded=false;val epoch=requests.epoch;scope.launch{closing?.join();if(backgrounded || epoch!=requests.epoch)return@launch;ensureStreams()}}}
     override fun onDestroy(){scope.cancel();super.onDestroy()}
     @Composable private fun Video(index:Int,modifier:Modifier=Modifier){
         AndroidView(factory={PlayerView(it).apply{

@@ -5,6 +5,12 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +44,7 @@ class GuideUiState {
     val start=mutableLongStateOf(System.currentTimeMillis()/1800000*1800000)
     val groups=mutableStateOf<List<CustomGroup>>(emptyList())
     val preferences=mutableStateOf(GuidePreferences())
+    val cacheWindows=mutableStateMapOf<String,Long>()
     val cache=mutableStateMapOf<String,Pair<Long,List<Programme>>>()
     val channelScroll=LazyListState()
     val groupScroll=LazyListState()
@@ -64,6 +71,8 @@ class GuideUiState {
     var searchDraft by remember{mutableStateOf("")}
     var saving by remember{mutableStateOf(false)}
     val cache=state.cache
+    val windowStart=start/21600000*21600000
+    fun shiftTime(delta:Long){val current=System.currentTimeMillis();start=(start+delta).coerceIn(current-7*86400000,current+7*86400000)}
     val providerGroups=remember(channels){channels.groupBy { it.groupId }}
     val custom=groups.find { "custom:"+it.id==selected }
     val filtered=remember(channels,query,selected,groups,preferences.favorites){channels.filter { (selected=="all" || (selected=="favorites" && it.id in preferences.favorites) || (custom?.channelIds?.contains(it.id) ?: ("provider:"+it.groupId==selected))) && it.name.contains(query,true) }}
@@ -85,10 +94,11 @@ class GuideUiState {
     }}
     LaunchedEffect(store){try{groups=store.load();preferences=store.preferences()}catch(e:Exception){message=e.message?:"Could not load groups"}}
     LaunchedEffect(Unit){while(true){delay(30000);now=System.currentTimeMillis()}}
-    LaunchedEffect(visible.map{it.id},now/300000){
-        val missing=visible.filter{System.currentTimeMillis()-(cache[it.id]?.first?:0)>=300000}
+    LaunchedEffect(visible.map{it.id},now/300000,if(repo is ServerRepository)windowStart else 0L){
+        delay(150)
+        val missing=visible.filter{System.currentTimeMillis()-(cache[it.id]?.first?:0)>=300000 || (repo is ServerRepository && state.cacheWindows[it.id]!=windowStart)}
         if(repo is ServerRepository){
-            try{repo.programmeBatch(missing).forEach{(id,entries)->cache[id]=System.currentTimeMillis() to entries};while(cache.size>300)cache.entries.minByOrNull{it.value.first}?.key?.let{cache.remove(it)}}
+            try{repo.programmeBatch(missing,windowStart,windowStart+43200000).forEach{(id,entries)->cache[id]=System.currentTimeMillis() to entries;state.cacheWindows[id]=windowStart};while(cache.size>300)cache.entries.minByOrNull{it.value.first}?.key?.let{cache.remove(it);state.cacheWindows.remove(it)}}
             catch(e:CancellationException){throw e}catch(_:Exception){message="Guide temporarily unavailable"}
             return@LaunchedEffect
         }
@@ -96,7 +106,7 @@ class GuideUiState {
             val permits=kotlinx.coroutines.sync.Semaphore(3)
             missing.forEach{c->launch{
                 permits.acquire()
-                try{cache[c.id]=System.currentTimeMillis() to repo.programmes(c);if(cache.size>300)cache.entries.minByOrNull{it.value.first}?.key?.let{cache.remove(it)}}
+                try{cache[c.id]=System.currentTimeMillis() to repo.programmes(c);if(cache.size>300)cache.entries.minByOrNull{it.value.first}?.key?.let{cache.remove(it);state.cacheWindows.remove(it)}}
                 catch(e:CancellationException){throw e}catch(_:Exception){message="Some guide listings are unavailable. Channels can still play."}
                 finally{permits.release()}
             }}
@@ -127,7 +137,7 @@ class GuideUiState {
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
                 TextButton(onClick={navigationOpen=!navigationOpen}){Text(if(navigationOpen)"Hide groups" else "‹ Groups")}
                 if(custom!=null)TextButton(onClick={editing=custom}){Text("Edit group")}
-                TextButton(onClick={start-=5400000}){Text("‹ Earlier")};TextButton(onClick={start=System.currentTimeMillis()/1800000*1800000}){Text("Now")};TextButton(onClick={start+=5400000}){Text("Later ›")}
+                TextButton(onClick={shiftTime(-1800000)}){Text("‹ Earlier")};TextButton(onClick={start=System.currentTimeMillis()/1800000*1800000}){Text("Now")};TextButton(onClick={shiftTime(1800000)}){Text("Later ›")}
                 Text(DateTimeFormatter.ofPattern("EEE d MMM").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(start)),Modifier.padding(top=13.dp))
             }
             Row(Modifier.fillMaxWidth().padding(vertical=6.dp)){
@@ -142,18 +152,30 @@ class GuideUiState {
                             Box(Modifier.weight(1f)){GuideButton(c.name,modifier=if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
                         }
                         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().background(Color(0xFF25384F))){
-                            val width=maxWidth;val entries=cache[c.id]?.second.orEmpty().filter{it.end>start && it.start<start+5400000}
+                            val width=maxWidth
+                            val timelineFocus=remember{FocusRequester()}
+                            var timelineFocused by remember{mutableStateOf(false)}
+                            fun describeTime(){state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.end>start}}
+                            val pixels=with(LocalDensity.current){width.toPx()}
+                            val dragState=rememberDraggableState{delta->shiftTime((-delta/pixels*5400000).toLong())}
+                            Box(Modifier.fillMaxSize().border(if(timelineFocused)2.dp else 0.dp,if(timelineFocused)Color(0xFFDCE6F2)else Color.Transparent).focusRequester(timelineFocus).onFocusChanged{timelineFocused=it.isFocused;if(it.isFocused)describeTime()}.onPreviewKeyEvent{event->
+                                if(event.type==KeyEventType.KeyDown && (event.key==Key.DirectionLeft || event.key==Key.DirectionRight)){
+                                    shiftTime(if(event.key==Key.DirectionRight)1800000 else -1800000);describeTime();timelineFocus.requestFocus();true
+                                }else if(event.type==KeyEventType.KeyDown && (event.key==Key.Enter || event.key==Key.DirectionCenter)) {if(event.nativeKeyEvent.repeatCount==0)play(c);true}else false
+                            }.focusable().draggable(dragState,Orientation.Horizontal).semantics{contentDescription="${c.name} programme timeline. Left and right browse times. Select plays live."}){
+                            val entries=cache[c.id]?.second.orEmpty().filter{it.end>start && it.start<start+5400000}
                             if(entries.isEmpty())Text(if(cache.containsKey(c.id))"No programme information" else "Loading guide…",Modifier.padding(10.dp),style=MaterialTheme.typography.bodySmall)
                             entries.forEach{p->val left=((p.start-start).coerceAtLeast(0)/5400000f);val right=((p.end-start).coerceAtMost(5400000)/5400000f)
                                 Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp)){GuideButton(p.title,p.start<=now && p.end>now,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}}
                             }
                             if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(Color(0xFFDCE6F2)))
+                            }
                         }
                     }
                 }
                 if(filtered.isEmpty())item{Text("No channels in this view. Edit the group to add channels.",Modifier.padding(20.dp))}
             }
-            Text("${filtered.size} channels · Scroll to browse",style=MaterialTheme.typography.bodySmall)
+            Text("${filtered.size} channels · ↑↓ Channels · ←→ Programme times",style=MaterialTheme.typography.bodySmall)
             if(message.isNotEmpty())Text(message,style=MaterialTheme.typography.bodySmall)
           }
         }

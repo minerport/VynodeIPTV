@@ -51,9 +51,9 @@ interface Repository {
 class ServerRepository(override val profile: Profile): Repository {
     private suspend fun api(path: String, method: String = "GET", body: JSONObject? = null) = request(profile.base + "/api/v1" + path, profile.token,method,body)
     override suspend fun channels(): List<Channel> { val a=JSONArray(api("/channels"));return (0 until a.length()).map { a.getJSONObject(it).let { Channel(it.getString("id"),it.getString("name"),it.optString("epgId"),it.optString("providerId")+":"+it.optString("category"),it.optString("categoryName","Other channels")) } } }
-    suspend fun programmeBatch(channels:List<Channel>):Map<String,List<Programme>> {
+    suspend fun programmeBatch(channels:List<Channel>, from:Long, to:Long):Map<String,List<Programme>> {
         if(channels.isEmpty())return emptyMap()
-        val data=JSONObject(api("/guide?channelIds="+Uri.encode(channels.joinToString(","){it.id}))).getJSONArray("programmes")
+        val data=JSONObject(api("/guide?channelIds="+Uri.encode(channels.joinToString(","){it.id})+"&from="+Uri.encode(java.time.Instant.ofEpochMilli(from).toString())+"&to="+Uri.encode(java.time.Instant.ofEpochMilli(to).toString()))).getJSONArray("programmes")
         val result=channels.associate{it.id to mutableListOf<Programme>()}
         for(i in 0 until data.length()){
             val p=data.getJSONObject(i)

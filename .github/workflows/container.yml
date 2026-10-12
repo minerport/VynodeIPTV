@@ -33,6 +33,7 @@ jobs:
       - name: Authenticated media and worker recovery smoke
         env:
           IPTV_TEST_CONTAINER: vynodeiptv-ci
+          IPTV_TEST_ACCOUNT_SETUP: '1'
         run: node scripts/verify-server.mjs
       - name: Remove isolated test container and volumes
         if: always()

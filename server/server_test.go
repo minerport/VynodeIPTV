@@ -22,6 +22,9 @@ func testApp(t *testing.T) *App {
 }
 func call(a *App, method, path, token, body string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))
+	if body != "" {
+		r.Header.Set("Content-Type", "application/json")
+	}
 	if token != "" {
 		r.Header.Set("Authorization", "Bearer "+token)
 	}

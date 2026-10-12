@@ -1,12 +1,22 @@
 import {mkdir, writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
+import {randomBytes} from 'node:crypto';
 const base=process.env.IPTV_TEST_URL||'http://127.0.0.1:8580';
-const admin=execFileSync('docker',['exec',process.env.IPTV_TEST_CONTAINER||'signal-iptv-iptv-1','cat','/config/admin.token'],{encoding:'utf8'}).trim();
+let admin=process.env.IPTV_TEST_ADMIN_SESSION||'';
+if(process.env.IPTV_TEST_ACCOUNT_SETUP!=='1'&&!admin)admin=execFileSync('docker',['exec',process.env.IPTV_TEST_CONTAINER||'signal-iptv-iptv-1','cat','/config/admin.token'],{encoding:'utf8'}).trim();
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function req(path,{token=admin,method='GET',body,status=200}={}){const r=await fetch(base+path,{method,headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});assert.equal(r.status,status,`${method} ${path} status`);return r.json()}
 let device='',session='';
 try{
+ if(process.env.IPTV_TEST_ACCOUNT_SETUP==='1'){
+  const credentials={username:'synthetic-admin',password:randomBytes(24).toString('hex')};
+  const status=await req('/api/v1/auth/status',{token:''});assert.equal(status.setup,true);assert.equal(status.migration,false,'Account setup smoke must only run against an empty isolated fixture');
+  const created=await req('/api/v1/auth/setup',{token:'',method:'POST',body:credentials});
+  await req('/api/v1/auth/logout',{token:created.token,method:'POST',body:{}});
+  await req('/api/v1/providers',{token:created.token,status:401});
+  const signedIn=await req('/api/v1/auth/login',{token:'',method:'POST',body:credentials});admin=signedIn.token;
+ }
  await req('/api/v1/channels',{token:'',status:401});
  const pair=await req('/api/v1/pairing/requests',{token:'',method:'POST',body:{name:'Automated smoke test'},status:201});device=pair.id;
  await req('/api/v1/pairing/approve',{method:'POST',body:{id:pair.id,code:pair.code}});
