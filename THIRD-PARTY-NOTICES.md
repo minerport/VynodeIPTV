@@ -1,6 +1,6 @@
 # Third-party notices
 
-VynodeIPTV includes or depends on the following components. Their respective licenses continue to apply; publishing this repository does not relicense third-party software.
+VynodeIPTV includes or depends on the following components. The root MIT license covers VynodeIPTV original code, templates, metadata and artwork. Third-party components retain their respective licenses; the root license does not relicense them.
 
 - **hls.js 1.7.3**, Apache-2.0: the vendored browser bundle and complete notice are in `server/web/vendor/`; upstream source: https://github.com/video-dev/hls.js/tree/v1.7.3.
 - **Go**, BSD-style license: https://go.dev/LICENSE. The server is built using the official Go container image.

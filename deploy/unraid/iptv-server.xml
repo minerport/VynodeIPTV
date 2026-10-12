@@ -4,6 +4,14 @@
   <Repository>ghcr.io/minerport/vynodeiptv:0.6.1</Repository>
   <Registry>https://github.com/minerport/VynodeIPTV/pkgs/container/vynodeiptv</Registry>
   <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Icon>https://raw.githubusercontent.com/minerport/VynodeIPTV/main/assets/vynodeiptv.svg</Icon>
+  <ReadMe>https://raw.githubusercontent.com/minerport/VynodeIPTV/main/docs/UNRAID.md</ReadMe>
+  <ExtraSearchTerms>iptv xtream epg television android shield video wall</ExtraSearchTerms>
+  <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
+  <Beta>true</Beta>
+  <Date>2026-10-12</Date>
+  <Changes>Initial Community Apps submission metadata for the 0.6.1 preview. Independent browser players, channel guide, companion pairing and monitored server output.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

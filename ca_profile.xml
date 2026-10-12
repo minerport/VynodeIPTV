@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CommunityApplications>
+  <Profile>VynodeIPTV provides a self-hosted IPTV server, browser video wall and Android TV companion. This repository maintains the Docker application template, application source and installation documentation. Users supply their own authorized Xtream provider connection. No channels, subscriptions or credentials are included. Report issues and get installation help at https://github.com/minerport/VynodeIPTV/issues. Preview release: physical Unraid and NVIDIA Shield acceptance testing is still pending.</Profile>
+  <Icon>https://raw.githubusercontent.com/minerport/VynodeIPTV/main/assets/vynodeiptv.svg</Icon>
+  <WebPage>https://github.com/minerport/VynodeIPTV</WebPage>
+</CommunityApplications>

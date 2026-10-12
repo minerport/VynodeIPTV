@@ -59,3 +59,12 @@ See [release validation](docs/VALIDATION-0.6.1.md), [architecture roadmap](IPTV-
 ## Current limits
 
 Recovery may briefly rebuffer; unavailable upstream media cannot be reconstructed. Segment/clock monitoring cannot identify an encoded still image or silence. Hardware transcoding, gapless timeline stitching, shared ingest, recording, catch-up, scheduled EPG refresh and server-restart session recreation remain future work. Unraid compatibility is packaged and container-tested; installation on physical Unraid and Shield hardware still requires acceptance testing.
+
+
+## Community Apps submission and licensing
+
+The repository includes the root MIT `LICENSE`, required `ca_profile.xml`, app icon and one canonical Docker app template at `deploy/unraid/iptv-server.xml`. Submit this repository URL: **https://github.com/minerport/VynodeIPTV**. In the Community Apps portal, use Re-check, Validate and Scan before submitting for review. Repository readiness does not mean the app has been accepted or listed.
+
+VynodeIPTV's original source, templates, metadata and artwork are licensed under [MIT](LICENSE). Bundled dependencies retain their own licenses; see [third-party notices](THIRD-PARTY-NOTICES.md). The container image includes separately licensed components such as FFmpeg and Debian packages.
+
+See the [Community Apps submission checklist](docs/COMMUNITY-APPS.md).
