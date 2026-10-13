@@ -11,7 +11,7 @@
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
   <Date>2026-10-12</Date>
-  <Changes>0.9.1: Portrait fullscreen preserves the full video frame, respects phone safe areas and locks background scrolling. Portrait video walls adapt to available space.</Changes>
+  <Changes>0.9.2: Removes fullscreen selection outlines; landscape video fills edge to edge, including device cutout areas. Portrait preserves the complete frame.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

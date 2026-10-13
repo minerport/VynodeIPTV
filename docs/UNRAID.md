@@ -1,6 +1,6 @@
 # Install VynodeIPTV on Unraid
 
-Target: x86-64 Unraid with Docker enabled. Image: `ghcr.io/minerport/vynodeiptv:latest` (current numbered version: `0.9.1`).
+Target: x86-64 Unraid with Docker enabled. Image: `ghcr.io/minerport/vynodeiptv:latest` (current numbered version: `0.9.2`).
 
 ## 1. Prepare persistent storage
 

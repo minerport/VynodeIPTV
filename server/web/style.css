@@ -63,3 +63,10 @@ body:has(#wall.expanded){overflow:hidden}
  #wall.expanded #back-wall{opacity:1}
 }
 @media(hover:none){#wall.expanded #back-wall{opacity:1}}
+/* A fullscreen picture has no wall selection decoration. */
+#wall.expanded.tile-fullscreen .wall-tile{border:0;outline:0;box-shadow:none;border-radius:0}
+#wall.expanded.tile-fullscreen .wall-tile::after{display:none;border:0;box-shadow:none}
+@media(orientation:landscape){#wall.expanded.tile-fullscreen .wall-tile video{object-fit:cover}}
+/* Keep normal page controls within device cutouts while video uses the full viewport. */
+header{padding-left:max(3vw,env(safe-area-inset-left));padding-right:max(3vw,env(safe-area-inset-right))}
+main{padding-left:max(3vw,env(safe-area-inset-left));padding-right:max(3vw,env(safe-area-inset-right))}
