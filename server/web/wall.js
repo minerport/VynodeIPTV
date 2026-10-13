@@ -13,7 +13,7 @@ export class VideoWall {
   const session=await this.api('/playback/sessions','POST',{channelId:channel.id,profile:'browser'});
   const node=document.createElement('div'),video=document.createElement('video'),label=document.createElement('span');node.className='wall-tile';node.tabIndex=0;node.setAttribute('role','button');node.setAttribute('aria-label',channel.name+' — select audio; activate for fullscreen');video.playsInline=true;video.muted=true;label.textContent=channel.name;node.append(video,label);this.host.append(node);
   const tile={node,video,label,channel,session,generation:-1,retries:0,lastTime:0,lastProgress:Date.now(),healthySince:0,retryAt:0,status:'Starting stream',hls:null,removed:false,polling:false};
-  node.onfocus=()=>this.select(tile);node.onpointerenter=()=>this.select(tile);node.onclick=()=>{this.select(tile);this.fullscreen();};node.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.select(tile);this.fullscreen();}if(e.key.startsWith('Arrow')){const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-(this.capacity===6?3:2),ArrowDown:this.capacity===6?3:2}[e.key];this.tiles[this.tiles.indexOf(tile)+delta]?.node.focus();e.preventDefault();}};
+  node.onfocus=()=>this.select(tile);node.onpointerenter=()=>this.select(tile);node.onclick=()=>{this.select(tile);this.fullscreen();};node.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.select(tile);this.fullscreen();}if(e.key.startsWith('Arrow')){const columns=getComputedStyle(this.host).gridTemplateColumns.split(' ').length;const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-columns,ArrowDown:columns}[e.key];this.tiles[this.tiles.indexOf(tile)+delta]?.node.focus();e.preventDefault();}};
   video.addEventListener('playing',()=>{tile.lastProgress=Date.now();});
   this.tiles.push(tile);this.select(tile);this.render();if(session.state==='playing')this.attach(tile);
  });}
@@ -38,6 +38,6 @@ export class VideoWall {
  async clearTiles(){for(const t of [...this.tiles])await this.removeTile(t);}
  clear(){return this.enqueue(async()=>{await this.clearTiles();this.capacity=1;this.host.classList.remove('expanded','tile-fullscreen');this.render();});}
  remove(){return this.enqueue(async()=>{if(this.selected)await this.removeTile(this.selected);if(!this.tiles.length)this.capacity=1;this.render();});}
- fullscreen(){if(!this.selected)return;this.host.classList.add('expanded','tile-fullscreen');this.host.requestFullscreen?.().catch(()=>{});this.selected.node.focus();}
- back(){if(this.host.classList.contains('tile-fullscreen')){this.host.classList.remove('tile-fullscreen');if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});if(this.capacity===1)this.host.classList.remove('expanded');return true;}if(this.host.classList.contains('expanded')){this.host.classList.remove('expanded');return true;}return false;}
+ fullscreen(){if(!this.selected)return;this.host.classList.add('expanded','tile-fullscreen');this.host.requestFullscreen?.().catch(()=>{});this.selected.node.focus();this.render();}
+ back(){if(this.host.classList.contains('tile-fullscreen')){this.host.classList.remove('tile-fullscreen');if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});if(this.capacity===1)this.host.classList.remove('expanded');this.render();return true;}if(this.host.classList.contains('expanded')){this.host.classList.remove('expanded');this.render();return true;}return false;}
 }

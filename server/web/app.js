@@ -58,6 +58,7 @@ async function loadGuide(){
 function scheduleGuide(){clearTimeout(scrollTimer);scrollTimer=setTimeout(()=>loadGuide(),140)}
 async function loadCatalog(){[channels,customGroups,preferences]=await Promise.all([api('/channels'),api('/groups'),api('/guide/preferences')]);$('channel-count').textContent=channels.length;renderGroups();renderGuide();await loadGuide()}
 const wall=new VideoWall({host:$('wall'),api,onError:e=>message(e.message,true),onChange:w=>{
+ $('back-wall').textContent=w.capacity>1&&w.host.classList.contains('tile-fullscreen')?'‹ Back to wall':'‹ Back to guide';
  active=w.selected?.session||null;
  if(phoneLayout.matches&&w.selected?.status.startsWith('Select Enable audio'))$('player-controls').open=true;
  $('player-placeholder').hidden=w.tiles.length>0;
