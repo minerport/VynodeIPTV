@@ -111,7 +111,7 @@ $('remove-tile').onclick=()=>wall.remove().catch(e=>message(e.message,true));
 $('enable-audio').onclick=()=>{const t=wall.selected;if(t){wall.select(t);t.video.play().catch(e=>message(e.message,true));}};
 $('back-wall').onclick=()=>wall.back();
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.querySelector('dialog[open]')){if(wall.back()){e.preventDefault();}else if(!$('live').hidden){setGroups(true);}}});
-document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&wall.host.classList.contains('tile-fullscreen'))wall.back();});
+for(const event of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(event,()=>{if(!document.fullscreenElement&&!document.webkitFullscreenElement&&wall.host.classList.contains('tile-fullscreen'))wall.back();});
 
 // All rows share one timeline so channel comparisons and the header stay aligned.
 function shiftGuide(delta){const now=Date.now();start=Math.max(now-7*86400000,Math.min(now+7*86400000,start+delta));renderGuide();scheduleGuide()}
