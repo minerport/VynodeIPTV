@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -37,6 +40,9 @@ func validateProvider(p Provider) error {
 	}
 	if u.Scheme == "http" && !p.AllowHTTP {
 		return errors.New("HTTP requires explicit Allow HTTP selection")
+	}
+	if p.HTTPFallback && !p.AllowHTTP {
+		return errors.New("Automatic HTTP fallback requires Allow HTTP permission")
 	}
 	if p.Username == "" || p.Password == "" || p.Name == "" {
 		return errors.New("Name, username and password are required")
@@ -80,9 +86,9 @@ func providerGet(ctx context.Context, p Provider, endpoint, action string) (io.R
 		}
 		return nil
 	}}
-	resp, err := client.Do(req)
+	resp, err := doWithHTTPFallback(client, req, p.HTTPFallback && p.AllowHTTP)
 	if err != nil {
-		return nil, errors.New("Provider unavailable or TLS/transport rejected")
+		return nil, providerConnectionError(err)
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
@@ -224,4 +230,58 @@ func parseEPG(r io.Reader, channels []Channel, now time.Time) ([]Programme, erro
 		return nil, errors.New("No matching programmes; previous guide retained")
 	}
 	return out, nil
+}
+
+// Never expose net/url errors: their URL contains the provider password.
+func providerConnectionError(err error) error {
+	var invalid x509.CertificateInvalidError
+	var authority x509.UnknownAuthorityError
+	var hostname x509.HostnameError
+	var dns *net.DNSError
+	var network net.Error
+	switch {
+	case errors.As(err, &invalid):
+		return errors.New("Provider HTTPS certificate is expired or invalid")
+	case errors.As(err, &authority):
+		return errors.New("Provider HTTPS certificate is not trusted")
+	case errors.As(err, &hostname):
+		return errors.New("Provider HTTPS certificate does not match its address")
+	case errors.As(err, &dns):
+		return errors.New("Provider address could not be resolved")
+	case errors.As(err, &network) && network.Timeout():
+		return errors.New("Provider connection timed out")
+	default:
+		return errors.New("Provider connection or redirect failed")
+	}
+}
+
+func doWithHTTPFallback(client *http.Client, req *http.Request, enabled bool) (*http.Response, error) {
+	resp, err := client.Do(req)
+	if err == nil || !enabled || req.URL.Scheme != "https" || req.Context().Err() != nil {
+		return resp, err
+	}
+	var wrapped *url.Error
+	if errors.As(err, &wrapped) {
+		failed, e := url.Parse(wrapped.URL)
+		if e != nil || failed.Hostname() != req.URL.Hostname() {
+			return resp, err
+		}
+	}
+	var certificate *tls.CertificateVerificationError
+	var network *net.OpError
+	if !errors.As(err, &certificate) && !errors.As(err, &network) {
+		return resp, err
+	}
+	next := req.Clone(req.Context())
+	u := *req.URL
+	u.Scheme = "http"
+	if u.Port() == "443" {
+		u.Host = u.Hostname()
+		if strings.Contains(u.Host, ":") {
+			u.Host = "[" + u.Host + "]"
+		}
+	}
+	next.URL = &u
+	next.Host = u.Host
+	return client.Do(next)
 }

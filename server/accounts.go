@@ -67,14 +67,22 @@ func (a *App) saveProvider(w http.ResponseWriter, r *http.Request) {
 		if p.Password == "" {
 			p.Password = old.Password
 		}
-		if providerIdentity(p) != providerIdentity(*old) {
-			fail(w, 400, "For a different server or username, add a separate account to keep preferences isolated")
-			return
-		}
 	} else {
 		p.ID = state.ProviderIDs[providerIdentity(p)]
 		if p.ID == "" {
 			p.ID = providerIdentity(p)[:16]
+		}
+		for _, existing := range state.Providers {
+			if existing.ID == p.ID {
+				p.ID = randomID(16)
+				break
+			}
+		}
+		for key, id := range state.ProviderIDs {
+			if key != providerIdentity(p) && id == p.ID {
+				p.ID = randomID(16)
+				break
+			}
 		}
 	}
 	if err := validateProvider(p); err != nil {
@@ -92,6 +100,13 @@ func (a *App) saveProvider(w http.ResponseWriter, r *http.Request) {
 		if s.ProviderIDs == nil {
 			s.ProviderIDs = map[string]string{}
 		}
+		if old != nil && providerIdentity(*old) != providerIdentity(p) {
+			for key, id := range s.ProviderIDs {
+				if id == p.ID {
+					delete(s.ProviderIDs, key)
+				}
+			}
+		}
 		s.ProviderIDs[providerIdentity(p)] = p.ID
 		kept := []Provider{}
 		for _, v := range s.Providers {
@@ -106,25 +121,39 @@ func (a *App) saveProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.replaceCatalog(p.ID, channels)
+	cacheErr := a.store.saveCatalog(p.ID, channels, nil)
+	if cacheErr != nil {
+		cacheErr = fmt.Errorf("Channels loaded but cache could not be saved; check config storage")
+	}
+	a.recordImport(p.ID, "channels", cacheErr)
 	status := 200
 	if old == nil {
 		status = 201
 	}
 	send(w, status, map[string]any{"id": p.ID, "channels": len(channels)})
 }
-func (a *App) refreshChannels(ctx context.Context) map[string]string {
+func (a *App) refreshChannels(ctx context.Context, only ...string) map[string]string {
 	a.catalogMu.Lock()
 	defer a.catalogMu.Unlock()
 	result := map[string]string{}
 	for _, p := range a.store.snapshot().Providers {
+		if len(only) > 0 && p.ID != only[0] {
+			continue
+		}
 		cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		channels, err := loadChannels(cctx, p)
 		cancel()
 		if err != nil {
 			result[p.ID] = err.Error()
+			a.recordImport(p.ID, "channels", err)
 			continue
 		}
 		a.replaceCatalog(p.ID, channels)
+		cacheErr := a.store.saveCatalog(p.ID, channels, nil)
+		if cacheErr != nil {
+			cacheErr = fmt.Errorf("Channels loaded but cache could not be saved; check config storage")
+		}
+		a.recordImport(p.ID, "channels", cacheErr)
 		result[p.ID] = fmt.Sprintf("Imported %d channels", len(channels))
 	}
 	return result
@@ -204,6 +233,7 @@ func (a *App) scheduledRefresh(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
+			a.retryImports(ctx, now)
 			settings := a.store.snapshot().Refresh
 			if dailyDue(settings.ChannelsDaily, settings.LastChannels, now) && !now.Before(retryChannels) {
 				if refreshSucceeded(a.refreshChannels(ctx)) {

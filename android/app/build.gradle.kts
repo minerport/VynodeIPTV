@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "local.signaltv.app"
     compileSdk = 36
-    defaultConfig { applicationId = "local.signaltv.app"; minSdk = 26; targetSdk = 36; versionCode = 15; versionName = "0.10.0" }
+    defaultConfig { applicationId = "local.signaltv.app"; minSdk = 26; targetSdk = 36; versionCode = 16; versionName = "0.10.1" }
     buildFeatures { compose = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

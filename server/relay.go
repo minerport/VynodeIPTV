@@ -27,14 +27,16 @@ func (c deadlineConn) Read(b []byte) (int, error) {
 var playlistURI = regexp.MustCompile(`URI="([^"]+)"`)
 
 type mediaRelay struct {
-	server    *http.Server
-	transport *http.Transport
-	prefix    string
-	allowHTTP bool
-	mu        sync.Mutex
-	urls      map[string]string
-	ids       map[string]string
-	order     []string
+	server       *http.Server
+	transport    *http.Transport
+	prefix       string
+	allowHTTP    bool
+	httpFallback bool
+	providerHost string
+	mu           sync.Mutex
+	urls         map[string]string
+	ids          map[string]string
+	order        []string
 }
 
 func newMediaRelay(p Provider) (*mediaRelay, error) {
@@ -52,7 +54,8 @@ func newMediaRelay(p Provider) (*mediaRelay, error) {
 		}
 		return deadlineConn{c}, nil
 	}
-	relay := &mediaRelay{transport: transport, allowHTTP: p.AllowHTTP, urls: map[string]string{}, ids: map[string]string{}, prefix: "http://" + listener.Addr().String() + "/" + randomID(24) + "/"}
+	providerAddress, _ := url.Parse(p.URL)
+	relay := &mediaRelay{httpFallback: p.HTTPFallback, providerHost: providerAddress.Hostname(), transport: transport, allowHTTP: p.AllowHTTP, urls: map[string]string{}, ids: map[string]string{}, prefix: "http://" + listener.Addr().String() + "/" + randomID(24) + "/"}
 	relay.server = &http.Server{Handler: http.HandlerFunc(relay.serve), ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = relay.server.Serve(listener) }()
 	return relay, nil
@@ -118,7 +121,7 @@ func (r *mediaRelay) serve(w http.ResponseWriter, request *http.Request) {
 		}
 		return nil
 	}}
-	response, err := client.Do(req)
+	response, err := doWithHTTPFallback(client, req, r.httpFallback && r.allowHTTP && target.Hostname() == r.providerHost)
 	if err != nil {
 		http.Error(w, "Provider connection or transport rejected", 502)
 		return

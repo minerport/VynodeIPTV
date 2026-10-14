@@ -77,6 +77,11 @@ class PlaybackEngine(private val context: Context, private val repo: Repository,
         })
         player.addListener(object: Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
+                val old=playback
+                if(repo.profile.mode=="direct" && repo.profile.allowHttp && repo.profile.httpFallback && transportFailure(error) && old!=null && java.net.URI(old.url).host==java.net.URI(repo.profile.base).host){
+                    fallbackAddress(old.url)?.let{url->retry?.cancel();playback=old.copy(url=url);event("Using opted-in HTTP fallback");report("Retrying provider over HTTP");prepare(url);return}
+                }
+
                 val cause=generateSequence(error as Throwable?) { it.cause }.filterIsInstance<HttpDataSource.InvalidResponseCodeException>().firstOrNull()
                 when{
                     cause?.responseCode in listOf(401,403,404)->{retry?.cancel();player.pause();event("Access failure HTTP ${cause?.responseCode}");report("Provider returned HTTP ${cause?.responseCode}. Check subscription and channel access.")}

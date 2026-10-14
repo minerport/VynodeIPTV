@@ -32,6 +32,7 @@ type Pairing struct {
 	approved bool
 }
 type App struct {
+	imports         map[string]importStatus
 	catalogMu       sync.Mutex
 	accountMu       sync.RWMutex
 	login           loginState
@@ -58,6 +59,7 @@ func newApp(s *Store, token, scratch, ffmpeg string, demo bool) *App {
 		a.guide = append(a.guide, Programme{"demo:1", "Live test pattern and audio tone", now, now.Add(24 * time.Hour)})
 	}
 	providers := s.snapshot().Providers
+	a.restoreCachedCatalog(providers)
 	if len(providers) > 0 {
 		go a.restoreCatalog(providers)
 	}
@@ -168,7 +170,7 @@ func (a *App) routes() http.Handler {
 	m.HandleFunc("GET /api/v1/providers", a.auth(true, func(w http.ResponseWriter, r *http.Request) {
 		out := []map[string]any{}
 		for _, p := range a.store.snapshot().Providers {
-			out = append(out, map[string]any{"id": p.ID, "name": p.Name, "format": p.Format, "maxConnections": p.MaxConnections, "allowHttp": p.AllowHTTP, "url": p.URL, "username": p.Username})
+			out = append(out, map[string]any{"id": p.ID, "name": p.Name, "format": p.Format, "maxConnections": p.MaxConnections, "allowHttp": p.AllowHTTP, "httpFallback": p.HTTPFallback, "url": p.URL, "username": p.Username, "imports": a.providerImportStatus(p.ID)})
 		}
 		send(w, 200, out)
 	}))
@@ -188,6 +190,9 @@ func (a *App) routes() http.Handler {
 			for i := range s.Providers {
 				if s.Providers[i].ID == r.PathValue("id") {
 					s.Providers[i].AllowHTTP = b.AllowHTTP
+					if !b.AllowHTTP {
+						s.Providers[i].HTTPFallback = false
+					}
 					found = true
 				}
 			}
@@ -320,7 +325,7 @@ func (a *App) routes() http.Handler {
 func (a *App) refreshGuide(w http.ResponseWriter, r *http.Request) {
 	send(w, 200, a.syncGuide(r.Context()))
 }
-func (a *App) syncGuide(ctx context.Context) map[string]string {
+func (a *App) syncGuide(ctx context.Context, only ...string) map[string]string {
 	a.catalogMu.Lock()
 	defer a.catalogMu.Unlock()
 	a.mu.Lock()
@@ -334,9 +339,13 @@ func (a *App) syncGuide(ctx context.Context) map[string]string {
 	defer func() { a.mu.Lock(); a.syncing = false; a.mu.Unlock() }()
 	results := map[string]string{}
 	for _, p := range a.store.snapshot().Providers {
+		if len(only) > 0 && p.ID != only[0] {
+			continue
+		}
 		body, err := providerGet(ctx, p, "xmltv.php", "")
 		if err != nil {
 			results[p.ID] = err.Error()
+			a.recordImport(p.ID, "epg", err)
 			continue
 		}
 		providerChannels := []Channel{}
@@ -349,6 +358,7 @@ func (a *App) syncGuide(ctx context.Context) map[string]string {
 		body.Close()
 		if err != nil {
 			results[p.ID] = err.Error()
+			a.recordImport(p.ID, "epg", err)
 			continue
 		}
 		a.mu.Lock()
@@ -361,6 +371,11 @@ func (a *App) syncGuide(ctx context.Context) map[string]string {
 		a.guide = append(kept, programmes...)
 		a.guideStatus = "Updated " + time.Now().UTC().Format(time.RFC3339)
 		a.mu.Unlock()
+		err = a.store.saveCatalog(p.ID, nil, programmes)
+		if err != nil {
+			err = fmt.Errorf("Guide loaded but cache could not be saved; check config storage")
+		}
+		a.recordImport(p.ID, "epg", err)
 		results[p.ID] = fmt.Sprintf("Imported %d programmes", len(programmes))
 	}
 	return results

@@ -24,7 +24,7 @@ class EpgCache(context:Context,profile:Profile){
 fun xmltvTime(value:String):Long = runCatching{val clean=value.trim();OffsetDateTime.parse(if(clean.length==14)clean+" +0000" else clean,DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z")).toInstant().toEpochMilli()}.getOrDefault(0)
 suspend fun importEpg(profile:Profile,channels:List<Channel>):Map<String,List<Programme>> = withContext(Dispatchers.IO){
  val url=android.net.Uri.parse(profile.base+"/xmltv.php").buildUpon().appendQueryParameter("username",profile.username).appendQueryParameter("password",profile.password).build().toString()
- val xml=request(url);val parser=Xml.newPullParser();parser.setInput(xml.reader())
+ val xml=request(url,httpFallback=profile.httpFallback&&profile.allowHttp);val parser=Xml.newPullParser();parser.setInput(xml.reader())
  val ids=channels.filter{it.epgId.isNotBlank()}.groupBy{it.epgId};val result=mutableMapOf<String,MutableList<Programme>>();val now=System.currentTimeMillis()
  var channel="";var start=0L;var end=0L;var title="";var description="";var count=0
  var rootSeen=false

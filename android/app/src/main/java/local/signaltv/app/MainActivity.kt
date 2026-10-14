@@ -62,6 +62,7 @@ class MainActivity: ComponentActivity() {
     private val requests=SlotRequests()
     private var repository by mutableStateOf<Repository?>(null)
     private var connectJob: Job?=null
+    private var connectionRetry:Job?=null
     private var busy by mutableStateOf(false)
     private var healthOpen by mutableStateOf(false)
     private var catalogMetrics by mutableStateOf("Catalog measurements pending")
@@ -74,13 +75,22 @@ class MainActivity: ComponentActivity() {
     }
     private fun restoreConnection(){try{unlockError=false;secure.load()?.let{profile=it;connect(it)}}catch(e:Exception){unlockError=true;status=e.message?:"Unable to unlock connection"}}
     private fun connect(p: Profile,replacing:Profile?=null){
-        connectJob?.cancel()
+        connectJob?.cancel();connectionRetry?.cancel()
+        val savedConnection=replacing==null && secure.accounts().any{it==p}
         val previousProfile=profile;val previousRepository=repository;val previousChannels=channels;val previousGuide=guideState
         if(profile?.accountKey()!=p.accountKey()){stopPlayback(false);channels=emptyList();guideState=GuideUiState();repository=null;sceneLoaded=false}
         val repo=repository?.takeIf{it.profile==p}?:if(p.mode=="server")ServerRepository(p)else XtreamRepository(p,this)
         repository=repo
-        connectJob=scope.launch{val started=android.os.SystemClock.elapsedRealtime();busy=true;try{status="Loading channels…";if(channels.isEmpty())channels=withContext(Dispatchers.IO){CatalogCache(this@MainActivity,p).load()};catalogMetrics="Cached catalog: ${android.os.SystemClock.elapsedRealtime()-started}ms · ${channels.size} channels";val result=withContext(Dispatchers.IO){repo.channels().also{CatalogCache(this@MainActivity,p).save(it)}};secure.save(p,replacing);profile=p;managingAccounts=false;RefreshJobs.schedule(this@MainActivity);channels=result;catalogMetrics+=" · refreshed: ${android.os.SystemClock.elapsedRealtime()-started}ms";restoreScene();status="${result.size} channels · ${if(p.mode=="server")"Companion" else "Standalone"}"}catch(e:CancellationException){throw e}catch(e:Exception){if(previousRepository!=null || previousProfile?.accountKey()!=p.accountKey()){profile=previousProfile;repository=previousRepository;channels=previousChannels;guideState=previousGuide};status=e.message?:"Connection failed"}finally{busy=false}}
+        connectJob=scope.launch{val started=android.os.SystemClock.elapsedRealtime();busy=true;try{status="Loading channels…";if(channels.isEmpty())channels=withContext(Dispatchers.IO){CatalogCache(this@MainActivity,p).load()};catalogMetrics="Cached catalog: ${android.os.SystemClock.elapsedRealtime()-started}ms · ${channels.size} channels";val result=withContext(Dispatchers.IO){repo.channels().also{require(it.isNotEmpty()){"No channels returned; saved lineup retained"};CatalogCache(this@MainActivity,p).save(it)}};secure.save(p,replacing);profile=p;managingAccounts=false;RefreshJobs.schedule(this@MainActivity);channels=result;catalogMetrics+=" · refreshed: ${android.os.SystemClock.elapsedRealtime()-started}ms";restoreScene();status="${result.size} channels · ${if(p.mode=="server")"Companion" else "Standalone"}"}catch(e:CancellationException){throw e}catch(e:Exception){if(savedConnection){profile=p;secure.save(p);managingAccounts=false;restoreScene();retrySavedConnection(repo)}else if(previousRepository!=null || previousProfile?.accountKey()!=p.accountKey()){profile=previousProfile;repository=previousRepository;channels=previousChannels;guideState=previousGuide};status=(e.message?:"Connection failed")+if(savedConnection)" · retrying automatically" else "";guideState.refreshMessage.value=status}finally{busy=false}}
     }
+    private fun retrySavedConnection(repo:Repository){connectionRetry?.cancel();connectionRetry=scope.launch{
+        var wait=30000L
+        while(isActive && repository===repo && profile==repo.profile){delay(wait);try{
+            val result=repo.channels();require(result.isNotEmpty())
+            withContext(Dispatchers.IO){CatalogCache(this@MainActivity,repo.profile).save(result)}
+            if(repository===repo && profile==repo.profile){channels=result;guideState.refreshMessage.value="Provider reconnected";status="${result.size} channels"};return@launch
+        }catch(e:CancellationException){throw e}catch(_:Exception){wait=(wait*2).coerceAtMost(300000L)}}
+    }}
     private fun saveScene(){profile?.let{SceneStore(this,it).save(slots.toList(),layout,selectedSlot,multiEnabled)}}
     private fun restoreScene(){
         if(sceneLoaded)return;sceneLoaded=true
@@ -257,6 +267,7 @@ class MainActivity: ComponentActivity() {
         if(settings)profile?.let{p->
             var http by remember{mutableStateOf(p.allowHttp)}
             var format by remember{mutableStateOf(p.format)}
+            var fallback by remember{mutableStateOf(p.httpFallback)}
             var output by remember{mutableStateOf(p.streamProfile)}
             val refreshPrefs=remember(p){RefreshPreferences(this,p)}
             var dailyChannels by remember{mutableStateOf(refreshPrefs.channels)}
@@ -269,13 +280,14 @@ class MainActivity: ComponentActivity() {
                 Text(if(p.mode=="server")"Companion · Android controls the channels; your server supplies the stream." else "Standalone · streams play directly from your Xtream provider.")
                 if(p.mode=="direct"){
                     Row{Checkbox(http,{http=it});Text("Allow HTTP streams and redirects (unencrypted)")}
+                    Row{Checkbox(fallback,{fallback=it},enabled=http);Text("Automatic HTTP fallback (credentials sent unencrypted)")}
                     Row{RadioButton(format=="m3u8",{format="m3u8"});Text("HLS",Modifier.padding(top=14.dp));RadioButton(format=="ts",{format="ts"});Text("MPEG-TS",Modifier.padding(top=14.dp))}
                 }else{
                     Row{RadioButton(output=="remux",{output="remux"});Text("Original quality · server remux",Modifier.padding(top=14.dp))}
                     Row{RadioButton(output=="browser",{output="browser"});Text("Compatibility · server converts to H.264 / AAC",Modifier.padding(top=14.dp))}
                     Text("Conversion uses server CPU. Provider HTTP settings are managed on the server.",style=MaterialTheme.typography.bodySmall)
                 }
-            }},confirmButton={Button(onClick={settings=false;refreshPrefs.set(dailyChannels,dailyEpg);RefreshJobs.schedule(this);val updated=p.copy(allowHttp=http,format=format,streamProfile=output);if(updated!=p){stopPlayback(false);connect(updated)}}){Text("Save")}},dismissButton={Row{
+            }},confirmButton={Button(onClick={settings=false;refreshPrefs.set(dailyChannels,dailyEpg);RefreshJobs.schedule(this);val updated=p.copy(allowHttp=http,format=format,streamProfile=output,httpFallback=fallback&&http);if(updated!=p){stopPlayback(false);connect(updated)}}){Text("Save")}},dismissButton={Row{
                 TextButton(onClick={settings=false;stopPlayback(false);connectJob?.cancel();managingAccounts=true}){Text("Switch mode / accounts")}
                 TextButton(onClick={settings=false;stopPlayback(false);connectJob?.cancel();secure.logout();profile=null;repository=null;channels=emptyList();guideState=GuideUiState();managingAccounts=true}){Text("Log out")}
 
@@ -305,7 +317,7 @@ class MainActivity: ComponentActivity() {
             return
         }
 
-        var mode by remember(edit){mutableStateOf(edit?.mode?:"direct")};var base by remember(edit){mutableStateOf(edit?.base.orEmpty())};var user by remember(edit){mutableStateOf(edit?.username.orEmpty())};var password by remember(edit){mutableStateOf(edit?.password.orEmpty())};var http by remember(edit){mutableStateOf(edit?.allowHttp?:false)};var format by remember(edit){mutableStateOf(edit?.format?:"m3u8")};var pairing by remember{mutableStateOf("")}
+        var mode by remember(edit){mutableStateOf(edit?.mode?:"direct")};var base by remember(edit){mutableStateOf(edit?.base.orEmpty())};var user by remember(edit){mutableStateOf(edit?.username.orEmpty())};var password by remember(edit){mutableStateOf(edit?.password.orEmpty())};var http by remember(edit){mutableStateOf(edit?.allowHttp?:false)};var format by remember(edit){mutableStateOf(edit?.format?:"m3u8")};var pairing by remember{mutableStateOf("")};var fallback by remember(edit){mutableStateOf(edit?.httpFallback?:false)}
         Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){
             TextButton(enabled=!busy,onClick={form=false;saved=secure.accounts()}){Text("‹ Saved accounts")}
             Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){Button(onClick={mode="server"},enabled=!busy){Text("Companion · my server")};Button(onClick={mode="direct"},enabled=!busy){Text("Standalone · Xtream")}}
@@ -313,9 +325,10 @@ class MainActivity: ComponentActivity() {
             TvTextInput(value=base,onValueChange={base=it},label={Text(if(mode=="server")"Server address, e.g. http://192.168.1.10:8580" else "Provider server URL")},singleLine=true,modifier=Modifier.fillMaxWidth())
             Row{Checkbox(checked=http,onCheckedChange={http=it});Text("Allow HTTP on this connection (unencrypted)",modifier=Modifier.padding(top=14.dp))}
             if(mode=="direct"){
+                Row{Checkbox(fallback,{fallback=it},enabled=http);Text("Automatic HTTP fallback (credentials sent unencrypted)")}
                 Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){TvTextInput(value=user,onValueChange={user=it},label={Text("Username")},singleLine=true,modifier=Modifier.weight(1f));TvTextInput(value=password,onValueChange={password=it},label={Text("Password")},visualTransformation=PasswordVisualTransformation(),singleLine=true,modifier=Modifier.weight(1f))}
                 Row{RadioButton(selected=format=="m3u8",onClick={format="m3u8"});Text("HLS",Modifier.padding(top=14.dp));RadioButton(selected=format=="ts",onClick={format="ts"});Text("MPEG-TS",Modifier.padding(top=14.dp))}
-                Button(enabled=!busy,onClick={try{connect(Profile("direct",validateBase(base,http),username=user,password=password,format=format,allowHttp=http),edit)}catch(e:Exception){status=e.message?:"Invalid address"}}){Text("Sign in & load channels")}
+                Button(enabled=!busy,onClick={try{connect(Profile("direct",validateBase(base,http),username=user,password=password,format=format,allowHttp=http,httpFallback=fallback&&http),edit)}catch(e:Exception){status=e.message?:"Invalid address"}}){Text("Sign in & load channels")}
             }else{
                 val existing=edit
                 if(existing?.mode=="server")Button(enabled=!busy,onClick={try{val address=validateBase(base,http);require(address==existing.base){"Pair again to use a different server address"};connect(existing.copy(allowHttp=http),existing)}catch(e:Exception){status=e.message?:"Invalid address"}}){Text("Save connection")}

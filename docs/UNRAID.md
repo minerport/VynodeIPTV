@@ -1,6 +1,6 @@
 # Install VynodeIPTV on Unraid
 
-Target: x86-64 Unraid with Docker enabled. Image: `ghcr.io/minerport/vynodeiptv:latest` (current numbered version: `0.10.0`).
+Target: x86-64 Unraid with Docker enabled. Image: `ghcr.io/minerport/vynodeiptv:latest` (current numbered version: `0.10.1`).
 
 ## 1. Prepare persistent storage
 
@@ -67,9 +67,9 @@ With local Unraid administrator access, stop the container and back up `/config`
 The guide opens at the current half-hour containing Now. On browser rows, use left/right arrows, horizontal trackpad scrolling, Shift+wheel or drag the programme area. On Android, focus the programme area and use D-pad left/right; touch dragging also scrolls. All rows share an aligned timeline. Now returns to live listings, and backing out of fullscreen preserves your guide position. Listings depend on the EPG supplied by the provider; browsing past programmes does not enable catch-up playback.
 
 
-## Saved accounts and refresh (0.10.0)
+## Saved accounts and refresh (0.10.1)
 
-Server settings lists saved provider accounts above the add-account form. Edit changes the display name, password, stream format, connection limit and HTTP permission. Leave the password blank when editing to retain it. A different provider URL or username is a separate account; use Add account. Stop that provider's active sessions before editing or deleting its login.
+Server settings lists saved provider accounts above the add-account form. Edit changes the display name, provider URL, username, password, stream format, connection limit and transport permissions. Leave the password blank when editing to retain it. Changes to URL or username are verified before replacing the saved login and preserve its internal channel identifiers. Use Add account for an unrelated subscription to keep its preferences separate. Stop that provider's active sessions before editing or deleting its login.
 
 Refresh EPG is directly below Refresh channels. Each refresh imports only the requested metadata and preserves existing data if the provider fails. Independent daily switches run on the server without an open dashboard. The scheduler checks once a minute, refreshes after 24 hours since its last successful scheduled import, and backs off for an hour after failure. Refreshing does not restart active video sessions.
 
@@ -84,3 +84,14 @@ Open Connection settings > Switch mode / accounts. Add a standalone Xtream login
 Android stores credentials encrypted with Android Keystore and retains metadata separately in app-private storage. Existing saved connections migrate automatically. Log out clears the active selection, not saved credentials or preferences. Delete login removes its credentials. Standalone preferences are scoped to provider URL and username; password changes preserve them. Companion preferences remain scoped to the paired device on the server; revoking/re-pairing creates a different server identity. Preferences are not automatically synchronized between standalone and companion modes or different devices.
 
 Daily switches are per saved Android connection and default off. Android checks due work approximately hourly, subject to network, Doze and background-execution limits, and also checks on startup. It cannot guarantee a fixed refresh time while powered off or force-stopped. For an always-on companion schedule, enable the server's daily switches. Standalone EPG refresh uses the provider's XMLTV endpoint (32 MiB download / 300,000 matched programme limit, seven days either side of now); failed or empty imports retain previous guide data. Normal per-channel guide lookup remains available. Clearing Android app data/uninstalling removes local saved data.
+
+
+## Automatic reconnect and HTTP fallback (0.10.1)
+
+Successful server channel/guide imports now save encrypted catalog snapshots in /config alongside the existing credentials. Restart restores snapshots before contacting providers. Failed imports preserve them and retry automatically, independently of daily-refresh switches, with delays increasing from one minute to a maximum of 32 minutes. The browser picks up recovered lineups automatically. Keep /config and its encryption key when updating.
+
+Old releases did not save server catalog snapshots. If an older installation has already restarted into an outage, it must complete one successful import before this cache can help. Saved listings do not make an unavailable live feed playable. The provider must still accept the connection and account.
+
+Standalone Android restores its cached lineup when a saved connection is unavailable and retries while that connection remains selected, without returning to login setup. Both direct and companion accounts remain selectable.
+
+Automatic HTTP fallback is separate from Allow HTTP streams, off by default, and available in provider editing and standalone Android connection settings. Enable Allow HTTP first, then opt into fallback. It sends provider credentials and media without encryption if the initial HTTPS connection fails. The app does not disable certificate validation. It retries the same host over HTTP (standard port 443 becomes 80; custom ports remain unchanged), never downgrades in response to an HTTP authentication/status rejection, and does not change the saved provider identity. The provider must offer a working HTTP endpoint. Companion-server administrator/pairing requests do not use Android's provider fallback.
