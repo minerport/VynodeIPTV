@@ -26,7 +26,16 @@ type Device struct {
 	Name      string `json:"name"`
 	TokenHash string `json:"tokenHash"`
 }
+type RefreshSettings struct {
+	ChannelsDaily bool  `json:"channelsDaily"`
+	EPGDaily      bool  `json:"epgDaily"`
+	LastChannels  int64 `json:"lastChannels"`
+	LastEPG       int64 `json:"lastEpg"`
+}
 type State struct {
+	Refresh     RefreshSettings   `json:"refresh"`
+	ProviderIDs map[string]string `json:"providerIds,omitempty"`
+
 	Providers   []Provider                  `json:"providers"`
 	Devices     []Device                    `json:"devices"`
 	Groups      []CustomGroup               `json:"groups"`
@@ -99,12 +108,12 @@ func openStore(dir string) (*Store, error) {
 func (s *Store) snapshot() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return State{Providers: append([]Provider{}, s.state.Providers...), Devices: append([]Device{}, s.state.Devices...), Groups: cloneGroups(s.state.Groups), Preferences: clonePreferences(s.state.Preferences)}
+	return State{Refresh: s.state.Refresh, ProviderIDs: cloneIDs(s.state.ProviderIDs), Providers: append([]Provider{}, s.state.Providers...), Devices: append([]Device{}, s.state.Devices...), Groups: cloneGroups(s.state.Groups), Preferences: clonePreferences(s.state.Preferences)}
 }
 func (s *Store) update(fn func(*State)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	next := State{Providers: append([]Provider{}, s.state.Providers...), Devices: append([]Device{}, s.state.Devices...), Groups: cloneGroups(s.state.Groups), Preferences: clonePreferences(s.state.Preferences)}
+	next := State{Refresh: s.state.Refresh, ProviderIDs: cloneIDs(s.state.ProviderIDs), Providers: append([]Provider{}, s.state.Providers...), Devices: append([]Device{}, s.state.Devices...), Groups: cloneGroups(s.state.Groups), Preferences: clonePreferences(s.state.Preferences)}
 	fn(&next)
 	plain, err := json.Marshal(next)
 	if err != nil {
@@ -135,4 +144,12 @@ func (s *Store) update(fn func(*State)) error {
 	}
 	s.state = next
 	return nil
+}
+
+func cloneIDs(source map[string]string) map[string]string {
+	out := map[string]string{}
+	for k, v := range source {
+		out[k] = v
+	}
+	return out
 }

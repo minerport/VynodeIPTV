@@ -1,6 +1,6 @@
 # Install VynodeIPTV on Unraid
 
-Target: x86-64 Unraid with Docker enabled. Image: `ghcr.io/minerport/vynodeiptv:latest` (current numbered version: `0.9.3`).
+Target: x86-64 Unraid with Docker enabled. Image: `ghcr.io/minerport/vynodeiptv:latest` (current numbered version: `0.10.0`).
 
 ## 1. Prepare persistent storage
 
@@ -65,3 +65,22 @@ With local Unraid administrator access, stop the container and back up `/config`
 ## Guide navigation
 
 The guide opens at the current half-hour containing Now. On browser rows, use left/right arrows, horizontal trackpad scrolling, Shift+wheel or drag the programme area. On Android, focus the programme area and use D-pad left/right; touch dragging also scrolls. All rows share an aligned timeline. Now returns to live listings, and backing out of fullscreen preserves your guide position. Listings depend on the EPG supplied by the provider; browsing past programmes does not enable catch-up playback.
+
+
+## Saved accounts and refresh (0.10.0)
+
+Server settings lists saved provider accounts above the add-account form. Edit changes the display name, password, stream format, connection limit and HTTP permission. Leave the password blank when editing to retain it. A different provider URL or username is a separate account; use Add account. Stop that provider's active sessions before editing or deleting its login.
+
+Refresh EPG is directly below Refresh channels. Each refresh imports only the requested metadata and preserves existing data if the provider fails. Independent daily switches run on the server without an open dashboard. The scheduler checks once a minute, refreshes after 24 hours since its last successful scheduled import, and backs off for an hour after failure. Refreshing does not restart active video sessions.
+
+Dashboard logout does not remove provider credentials or preferences. Delete login removes credentials but preserves the account identity and each user's favorites, group order, hidden groups and custom groups. Re-add the same provider URL and username to reconnect those saved identifiers. Providers that change their stream/category identifiers may require favorites or group selections to be updated. Back up /config; deleting appdata deletes saved state.
+
+## Android without a server
+
+Android is independently usable in Standalone / Xtream mode: channel import, direct playback, EPG, favorites, custom and hidden/reordered groups, video wall and manual/daily refresh all work without VynodeIPTV Server. The provider's simultaneous connection limit still applies.
+
+Open Connection settings > Switch mode / accounts. Add a standalone Xtream login, a paired companion server, or both. Use this switches the active connection and stops its current streams. Pairing does not replace the standalone login. Last selected connection is restored on launch; an offline companion server does not prevent switching to a saved standalone account. Enter the Xtream login on Android once; companion pairing does not copy server-held provider passwords to Android.
+
+Android stores credentials encrypted with Android Keystore and retains metadata separately in app-private storage. Existing saved connections migrate automatically. Log out clears the active selection, not saved credentials or preferences. Delete login removes its credentials. Standalone preferences are scoped to provider URL and username; password changes preserve them. Companion preferences remain scoped to the paired device on the server; revoking/re-pairing creates a different server identity. Preferences are not automatically synchronized between standalone and companion modes or different devices.
+
+Daily switches are per saved Android connection and default off. Android checks due work approximately hourly, subject to network, Doze and background-execution limits, and also checks on startup. It cannot guarantee a fixed refresh time while powered off or force-stopped. For an always-on companion schedule, enable the server's daily switches. Standalone EPG refresh uses the provider's XMLTV endpoint (32 MiB download / 300,000 matched programme limit, seven days either side of now); failed or empty imports retain previous guide data. Normal per-channel guide lookup remains available. Clearing Android app data/uninstalling removes local saved data.

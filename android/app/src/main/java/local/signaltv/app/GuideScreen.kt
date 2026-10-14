@@ -39,6 +39,8 @@ import java.time.format.DateTimeFormatter
 private fun clock(value: Long)=DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(value))
 
 class GuideUiState {
+    val refreshMessage=mutableStateOf("")
+    val refreshRevision=mutableIntStateOf(0)
     val returnChannel=mutableStateOf<String?>(null)
     val navigationOpen=mutableStateOf(true)
     val focusedChannel=mutableStateOf<Channel?>(null)
@@ -54,7 +56,7 @@ class GuideUiState {
     val groupScroll=LazyListState()
 }
 
-@Composable fun GuideScreen(channels: List<Channel>, repo: Repository, state: GuideUiState, preview: @Composable (androidx.compose.ui.unit.Dp)->Unit = {}, onWall:()->Unit={}, onSettings:()->Unit={}, onRefresh:()->Unit={}, play: (Channel)->Unit) {
+@Composable fun GuideScreen(channels: List<Channel>, repo: Repository, state: GuideUiState, preview: @Composable (androidx.compose.ui.unit.Dp)->Unit = {}, onWall:()->Unit={}, onSettings:()->Unit={}, onRefresh:()->Unit={}, onRefreshEpg:()->Unit={}, play: (Channel)->Unit) {
     val context=LocalContext.current
     val store=remember(repo.profile){Groups(context,repo.profile)}
     val scope=rememberCoroutineScope()
@@ -111,7 +113,7 @@ class GuideUiState {
     }}
     LaunchedEffect(store){try{groups=store.load();preferences=store.preferences()}catch(e:Exception){message=e.message?:"Could not load groups"}}
     LaunchedEffect(Unit){while(true){delay(30000);now=System.currentTimeMillis()}}
-    LaunchedEffect(visible.map{it.id},now/300000,if(repo is ServerRepository)windowStart else 0L){
+    LaunchedEffect(state.refreshRevision.intValue,visible.map{it.id},now/300000,if(repo is ServerRepository)windowStart else 0L){
         delay(150)
         val missing=visible.filter{System.currentTimeMillis()-(cache[it.id]?.first?:0)>=300000 || (repo is ServerRepository && state.cacheWindows[it.id]!=windowStart)}
         if(repo is ServerRepository){
@@ -136,6 +138,7 @@ class GuideUiState {
             RailIconButton(R.drawable.rail_favorite,"Favorites"){choose("favorites")}
             RailIconButton(R.drawable.rail_wall,"Video wall",action=onWall)
             RailIconButton(R.drawable.rail_sync,"Refresh channels",action=onRefresh)
+            RailIconButton(R.drawable.rail_epg,"Refresh EPG",action=onRefreshEpg)
             Spacer(Modifier.weight(1f))
             RailIconButton(R.drawable.rail_settings,"Connection settings",action=onSettings)
         }
@@ -196,6 +199,7 @@ class GuideUiState {
                 if(filtered.isEmpty())item{Text("No channels in this view. Edit the group to add channels.",Modifier.padding(20.dp))}
             }
             Text("${filtered.size} channels  ·  ↑↓ Browse  ·  ←→ Timeline  ·  OK Watch",color=TvPalette.Muted,style=MaterialTheme.typography.labelSmall,modifier=Modifier.padding(top=6.dp))
+            if(state.refreshMessage.value.isNotEmpty())Text(state.refreshMessage.value,style=MaterialTheme.typography.bodySmall)
             if(message.isNotEmpty())Text(message,style=MaterialTheme.typography.bodySmall)
           }
         }

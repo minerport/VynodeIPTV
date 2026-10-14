@@ -70,3 +70,5 @@ body:has(#wall.expanded){overflow:hidden}
 /* Keep normal page controls within device cutouts while video uses the full viewport. */
 header{padding-left:max(3vw,env(safe-area-inset-left));padding-right:max(3vw,env(safe-area-inset-right))}
 main{padding-left:max(3vw,env(safe-area-inset-left));padding-right:max(3vw,env(safe-area-inset-right))}
+
+.refresh-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.refresh-actions button{min-width:170px}

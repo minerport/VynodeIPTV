@@ -10,7 +10,7 @@ data class CustomGroup(val id: String, val name: String, val channelIds: Set<Str
 }
 class Groups(context: Context, private val profile: Profile) {
     private val prefs=context.getSharedPreferences("channel-groups",Context.MODE_PRIVATE)
-    private val key=MessageDigest.getInstance("SHA-256").digest((profile.mode+"|"+profile.base+"|"+profile.username).toByteArray()).joinToString(""){"%02x".format(it)}
+    private val key=profile.accountKey()
     suspend fun load(): List<CustomGroup> {
         val a=JSONArray(if(profile.mode=="server")request(profile.base+"/api/v1/groups",profile.token)else prefs.getString(key,"[]"))
         return (0 until a.length()).map { a.getJSONObject(it).let { g -> val ids=g.getJSONArray("channelIds");CustomGroup(g.getString("id"),g.getString("name"),(0 until ids.length()).map { ids.getString(it) }.toSet()) } }

@@ -32,6 +32,8 @@ type Pairing struct {
 	approved bool
 }
 type App struct {
+	catalogMu       sync.Mutex
+	accountMu       sync.RWMutex
 	login           loginState
 	mu              sync.Mutex
 	store           *Store
@@ -56,20 +58,13 @@ func newApp(s *Store, token, scratch, ffmpeg string, demo bool) *App {
 		a.guide = append(a.guide, Programme{"demo:1", "Live test pattern and audio tone", now, now.Add(24 * time.Hour)})
 	}
 	providers := s.snapshot().Providers
-	go a.restoreCatalog(providers)
+	if len(providers) > 0 {
+		go a.restoreCatalog(providers)
+	}
 	return a
 }
 func (a *App) restoreCatalog(providers []Provider) {
-	for _, p := range providers {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		channels, err := loadChannels(ctx, p)
-		cancel()
-		if err == nil {
-			a.mu.Lock()
-			a.channels = append(a.channels, channels...)
-			a.mu.Unlock()
-		}
-	}
+	a.refreshChannels(context.Background())
 	if len(providers) > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
@@ -173,12 +168,15 @@ func (a *App) routes() http.Handler {
 	m.HandleFunc("GET /api/v1/providers", a.auth(true, func(w http.ResponseWriter, r *http.Request) {
 		out := []map[string]any{}
 		for _, p := range a.store.snapshot().Providers {
-			out = append(out, map[string]any{"id": p.ID, "name": p.Name, "format": p.Format, "maxConnections": p.MaxConnections, "allowHttp": p.AllowHTTP})
+			out = append(out, map[string]any{"id": p.ID, "name": p.Name, "format": p.Format, "maxConnections": p.MaxConnections, "allowHttp": p.AllowHTTP, "url": p.URL, "username": p.Username})
 		}
 		send(w, 200, out)
 	}))
-	m.HandleFunc("POST /api/v1/providers", a.auth(true, a.addProvider))
+	m.HandleFunc("POST /api/v1/providers", a.auth(true, a.saveProvider))
+	a.accountRoutes(m)
 	m.HandleFunc("PUT /api/v1/providers/{id}/transport", a.auth(true, func(w http.ResponseWriter, r *http.Request) {
+		a.catalogMu.Lock()
+		defer a.catalogMu.Unlock()
 		var b struct {
 			AllowHTTP bool `json:"allowHttp"`
 		}
@@ -204,7 +202,7 @@ func (a *App) routes() http.Handler {
 		}
 		send(w, 200, map[string]bool{"updated": true})
 	}))
-	m.HandleFunc("POST /api/v1/guide/refresh", a.auth(true, a.refreshGuide))
+	m.HandleFunc("POST /api/v1/guide/refresh", a.auth(false, a.refreshGuide))
 	m.HandleFunc("POST /api/v1/pairing/requests", a.requestPairing)
 	m.HandleFunc("POST /api/v1/pairing/poll", a.pollPairing)
 	m.HandleFunc("GET /api/v1/pairing/requests", a.auth(true, func(w http.ResponseWriter, r *http.Request) {
@@ -319,34 +317,12 @@ func (a *App) routes() http.Handler {
 		m.ServeHTTP(w, r)
 	})
 }
-func (a *App) addProvider(w http.ResponseWriter, r *http.Request) {
-	var p Provider
-	if !decode(w, r, &p) {
-		return
-	}
-	p.ID = randomID(8)
-	if err := validateProvider(p); err != nil {
-		fail(w, 400, err.Error())
-		return
-	}
-	channels, err := loadChannels(r.Context(), p)
-	if err != nil {
-		fail(w, 422, err.Error())
-		return
-	}
-	if err = a.store.update(func(s *State) { s.Providers = append(s.Providers, p) }); err != nil {
-		fail(w, 500, "Could not save encrypted provider")
-		return
-	}
-	a.mu.Lock()
-	a.channels = append(a.channels, channels...)
-	a.mu.Unlock()
-	send(w, 201, map[string]any{"id": p.ID, "channels": len(channels)})
-}
 func (a *App) refreshGuide(w http.ResponseWriter, r *http.Request) {
 	send(w, 200, a.syncGuide(r.Context()))
 }
 func (a *App) syncGuide(ctx context.Context) map[string]string {
+	a.catalogMu.Lock()
+	defer a.catalogMu.Unlock()
 	a.mu.Lock()
 	if a.syncing {
 		a.mu.Unlock()
@@ -473,6 +449,11 @@ func (a *App) approvePairing(w http.ResponseWriter, r *http.Request) {
 	send(w, 200, map[string]bool{"approved": true})
 }
 func (a *App) createSession(w http.ResponseWriter, r *http.Request) {
+	if !a.accountMu.TryRLock() {
+		fail(w, 409, "Account update in progress; try again shortly")
+		return
+	}
+	defer a.accountMu.RUnlock()
 	var b struct {
 		ChannelID string `json:"channelId"`
 		Profile   string `json:"profile"`

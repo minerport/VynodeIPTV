@@ -54,7 +54,8 @@ class MainActivity: ComponentActivity() {
     private val multiEnabled get()=wallMode.enabled
     private var unlockError by mutableStateOf(false)
     private val engine:PlaybackEngine? get()=engines[selectedSlot]
-    private val guideState=GuideUiState()
+    private var guideState by mutableStateOf(GuideUiState())
+    private var managingAccounts by mutableStateOf(false)
     private var backgrounded=false
     private var sceneLoaded=false
     private var closing: Job?=null
@@ -67,14 +68,18 @@ class MainActivity: ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?){
         super.onCreate(savedInstanceState);secure=SecureProfile(this)
         restoreConnection()
+        RefreshJobs.schedule(this)
+        scope.launch{withContext(Dispatchers.IO){runCatching{RefreshJobs.run(this@MainActivity)}}}
         setContent{MaterialTheme(colorScheme=darkColorScheme(primary=TvPalette.Accent,onPrimary=TvPalette.OnAccent,secondary=TvPalette.Accent,onSecondary=TvPalette.OnAccent,background=TvPalette.Background,onBackground=TvPalette.Text,surface=TvPalette.Surface,onSurface=TvPalette.Text,surfaceVariant=TvPalette.Track,onSurfaceVariant=TvPalette.Muted,surfaceTint=TvPalette.Accent,primaryContainer=TvPalette.Live,onPrimaryContainer=TvPalette.Text,secondaryContainer=TvPalette.Surface,onSecondaryContainer=TvPalette.Text,tertiary=TvPalette.Accent,outline=TvPalette.Muted)){Surface(Modifier.fillMaxSize()){App()}}}
     }
     private fun restoreConnection(){try{unlockError=false;secure.load()?.let{profile=it;connect(it)}}catch(e:Exception){unlockError=true;status=e.message?:"Unable to unlock connection"}}
-    private fun connect(p: Profile){
+    private fun connect(p: Profile,replacing:Profile?=null){
         connectJob?.cancel()
-        val repo=repository?.takeIf{it.profile==p}?:if(p.mode=="server")ServerRepository(p)else XtreamRepository(p)
+        val previousProfile=profile;val previousRepository=repository;val previousChannels=channels;val previousGuide=guideState
+        if(profile?.accountKey()!=p.accountKey()){stopPlayback(false);channels=emptyList();guideState=GuideUiState();repository=null;sceneLoaded=false}
+        val repo=repository?.takeIf{it.profile==p}?:if(p.mode=="server")ServerRepository(p)else XtreamRepository(p,this)
         repository=repo
-        connectJob=scope.launch{val started=android.os.SystemClock.elapsedRealtime();busy=true;try{status="Loading channels…";if(channels.isEmpty())channels=withContext(Dispatchers.IO){CatalogCache(this@MainActivity,p).load()};catalogMetrics="Cached catalog: ${android.os.SystemClock.elapsedRealtime()-started}ms · ${channels.size} channels";val result=withContext(Dispatchers.IO){repo.channels().also{CatalogCache(this@MainActivity,p).save(it)}};secure.save(p);profile=p;channels=result;catalogMetrics+=" · refreshed: ${android.os.SystemClock.elapsedRealtime()-started}ms";restoreScene();status="${result.size} channels · ${if(p.mode=="server")"Companion" else "Standalone"}"}catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:"Connection failed"}finally{busy=false}}
+        connectJob=scope.launch{val started=android.os.SystemClock.elapsedRealtime();busy=true;try{status="Loading channels…";if(channels.isEmpty())channels=withContext(Dispatchers.IO){CatalogCache(this@MainActivity,p).load()};catalogMetrics="Cached catalog: ${android.os.SystemClock.elapsedRealtime()-started}ms · ${channels.size} channels";val result=withContext(Dispatchers.IO){repo.channels().also{CatalogCache(this@MainActivity,p).save(it)}};secure.save(p,replacing);profile=p;managingAccounts=false;RefreshJobs.schedule(this@MainActivity);channels=result;catalogMetrics+=" · refreshed: ${android.os.SystemClock.elapsedRealtime()-started}ms";restoreScene();status="${result.size} channels · ${if(p.mode=="server")"Companion" else "Standalone"}"}catch(e:CancellationException){throw e}catch(e:Exception){if(previousRepository!=null || previousProfile?.accountKey()!=p.accountKey()){profile=previousProfile;repository=previousRepository;channels=previousChannels;guideState=previousGuide};status=e.message?:"Connection failed"}finally{busy=false}}
     }
     private fun saveScene(){profile?.let{SceneStore(this,it).save(slots.toList(),layout,selectedSlot,multiEnabled)}}
     private fun restoreScene(){
@@ -187,6 +192,9 @@ class MainActivity: ComponentActivity() {
         }})
     }
     @Composable private fun App(){
+        LaunchedEffect(profile){val p=profile?:return@LaunchedEffect;val cache=CatalogCache(this@MainActivity,p);var stamp=cache.modified();while(true){delay(60000);if(stamp!=cache.modified()){val entries=withContext(Dispatchers.IO){cache.load()};if(profile==p&&entries.isNotEmpty())channels=entries;stamp=cache.modified()}}}
+
+        if(managingAccounts){Surface(Modifier.fillMaxSize()){Column(Modifier.padding(24.dp)){Setup()}};return}
         if(healthOpen)PlaybackHealthDialog(engines.map{(i,e)->(slots[i]?.name?:"Panel ${i+1}") to e},catalogMetrics){healthOpen=false}
         val c=current
         BackHandler(enabled=fullScreen || (!multiView && multiEnabled)){
@@ -225,7 +233,7 @@ class MainActivity: ComponentActivity() {
             if(unlockError){Text(status);Button(onClick={restoreConnection()}){Text("Retry")};Button(onClick={secure.clear();unlockError=false;status="Choose how to connect"}){Text("Reset saved login")};return@Column}
             if(profile==null){Setup();return@Column}
             if(busy && channels.isEmpty())LinearProgressIndicator(Modifier.fillMaxWidth())
-            repository?.let { repo -> GuideScreen(channels,repo,guideState,onWall={wallMode=wallMode.enter();multiView=true;saveScene();ensureStreams()},onSettings={settings=true},onRefresh={profile?.let{connect(it)}},preview={height->
+            repository?.let { repo -> GuideScreen(channels,repo,guideState,onWall={wallMode=wallMode.enter();multiView=true;saveScene();ensureStreams()},onSettings={settings=true},onRefresh={refreshChannels()},onRefreshEpg={refreshEpg()},preview={height->
                 Row(Modifier.fillMaxWidth().padding(bottom=8.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)){
                     Column{
                         Box(Modifier.height(height).aspectRatio(16f/9f).clip(RoundedCornerShape(12.dp)).background(Color.Black).border(1.dp,TvPalette.Line,RoundedCornerShape(12.dp))){
@@ -250,8 +258,14 @@ class MainActivity: ComponentActivity() {
             var http by remember{mutableStateOf(p.allowHttp)}
             var format by remember{mutableStateOf(p.format)}
             var output by remember{mutableStateOf(p.streamProfile)}
-            AlertDialog(onDismissRequest={settings=false},title={Text("Connection settings")},text={Column{
+            val refreshPrefs=remember(p){RefreshPreferences(this,p)}
+            var dailyChannels by remember{mutableStateOf(refreshPrefs.channels)}
+            var dailyEpg by remember{mutableStateOf(refreshPrefs.epg)}
+            AlertDialog(onDismissRequest={settings=false},title={Text("Connection settings")},text={Column(Modifier.heightIn(max=300.dp).verticalScroll(rememberScrollState())){
                 TextButton(onClick={settings=false;healthOpen=true}){Text("Playback health & performance")}
+                Row{Checkbox(dailyChannels,{dailyChannels=it});Text("Refresh channels daily",Modifier.padding(top=14.dp))}
+                Row{Checkbox(dailyEpg,{dailyEpg=it});Text("Refresh EPG daily",Modifier.padding(top=14.dp))}
+                Text("Runs when Android allows background work and a network is available.",style=MaterialTheme.typography.bodySmall)
                 Text(if(p.mode=="server")"Companion · Android controls the channels; your server supplies the stream." else "Standalone · streams play directly from your Xtream provider.")
                 if(p.mode=="direct"){
                     Row{Checkbox(http,{http=it});Text("Allow HTTP streams and redirects (unencrypted)")}
@@ -261,16 +275,39 @@ class MainActivity: ComponentActivity() {
                     Row{RadioButton(output=="browser",{output="browser"});Text("Compatibility · server converts to H.264 / AAC",Modifier.padding(top=14.dp))}
                     Text("Conversion uses server CPU. Provider HTTP settings are managed on the server.",style=MaterialTheme.typography.bodySmall)
                 }
-            }},confirmButton={Button(onClick={settings=false;stopPlayback(false);connect(p.copy(allowHttp=http,format=format,streamProfile=output))}){Text("Save")}},dismissButton={Row{
-                TextButton(onClick={settings=false;stopPlayback();connectJob?.cancel();secure.clear();profile=null;repository=null;sceneLoaded=false;channels=emptyList();guideState.cache.clear();guideState.navigationOpen.value=true;guideState.focusedProgramme.value=null;guideState.focusedChannel.value=null;guideState.groups.value=emptyList();guideState.preferences.value=GuidePreferences();guideState.selected.value="all";guideState.query.value="";status="Choose how to connect"}){Text("Change login")}
+            }},confirmButton={Button(onClick={settings=false;refreshPrefs.set(dailyChannels,dailyEpg);RefreshJobs.schedule(this);val updated=p.copy(allowHttp=http,format=format,streamProfile=output);if(updated!=p){stopPlayback(false);connect(updated)}}){Text("Save")}},dismissButton={Row{
+                TextButton(onClick={settings=false;stopPlayback(false);connectJob?.cancel();managingAccounts=true}){Text("Switch mode / accounts")}
+                TextButton(onClick={settings=false;stopPlayback(false);connectJob?.cancel();secure.logout();profile=null;repository=null;channels=emptyList();guideState=GuideUiState();managingAccounts=true}){Text("Log out")}
+
                 TextButton(onClick={settings=false}){Text("Cancel")}
             }})
         }
 
     }
+    private var refreshJob:Job?=null
+    private fun refreshChannels(){val repo=repository?:return;val state=guideState;if(refreshJob?.isActive==true)return;refreshJob=scope.launch{state.refreshMessage.value="Refreshing channels…";try{val result=repo.refreshChannels();withContext(Dispatchers.IO){CatalogCache(this@MainActivity,repo.profile).save(result)};if(repository===repo){channels=result;RefreshPreferences(this@MainActivity,repo.profile).success("channels");state.refreshMessage.value="Channels refreshed"}}catch(e:CancellationException){throw e}catch(e:Exception){state.refreshMessage.value=e.message?:"Channel refresh failed"}}}
+    private fun refreshEpg(){val repo=repository?:return;val state=guideState;if(refreshJob?.isActive==true)return;refreshJob=scope.launch{state.refreshMessage.value="Refreshing EPG…";try{repo.refreshEpg(channels);if(repository===repo){state.cache.clear();state.cacheWindows.clear();state.refreshRevision.intValue++;state.focusedProgramme.value=null;RefreshPreferences(this@MainActivity,repo.profile).success("epg");state.refreshMessage.value="EPG refreshed"}}catch(e:CancellationException){throw e}catch(e:Exception){state.refreshMessage.value=e.message?:"EPG refresh failed"}}}
     @Composable private fun Setup(){
-        var mode by remember{mutableStateOf("server")};var base by remember{mutableStateOf("")};var user by remember{mutableStateOf("")};var password by remember{mutableStateOf("")};var http by remember{mutableStateOf(false)};var format by remember{mutableStateOf("m3u8")};var pairing by remember{mutableStateOf("")}
+        var saved by remember{mutableStateOf(secure.accounts())}
+        var form by remember{mutableStateOf(saved.isEmpty())}
+        var edit by remember{mutableStateOf<Profile?>(null)}
+        var remove by remember{mutableStateOf<Profile?>(null)}
+        if(!form){
+            Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                Text("Accounts & playback mode",style=MaterialTheme.typography.headlineMedium)
+                Text("Standalone works directly with your provider. Companion uses your saved server. Switch here at any time; each connection keeps its own favorites and groups.")
+                saved.forEach{p->Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(if(p.mode=="direct")"Standalone · ${p.username}" else "Companion · server");Text(p.base,style=MaterialTheme.typography.bodySmall)};TextButton(enabled=!busy,onClick={connect(p)}){Text(if(profile?.accountKey()==p.accountKey())"Reconnect" else "Use this")};TextButton(enabled=!busy,onClick={edit=p;form=true}){Text("Edit")};TextButton(enabled=!busy,onClick={remove=p}){Text("Delete")}}}
+                Button(enabled=!busy,onClick={edit=null;form=true}){Text("Add account")}
+                if(profile!=null)TextButton(onClick={managingAccounts=false}){Text("Back to guide")}
+                Text(status)
+            }
+            remove?.let{p->AlertDialog(onDismissRequest={remove=null},title={Text("Delete saved login?")},text={Text("Credentials for ${p.username.ifBlank{p.base}} will be removed. Favorites and groups stay saved for this account.")},confirmButton={TextButton(onClick={secure.remove(p);if(profile?.accountKey()==p.accountKey()){profile=null;repository=null;channels=emptyList();guideState=GuideUiState()};saved=secure.accounts();remove=null}){Text("Delete login")}},dismissButton={TextButton(onClick={remove=null}){Text("Cancel")}})}
+            return
+        }
+
+        var mode by remember(edit){mutableStateOf(edit?.mode?:"direct")};var base by remember(edit){mutableStateOf(edit?.base.orEmpty())};var user by remember(edit){mutableStateOf(edit?.username.orEmpty())};var password by remember(edit){mutableStateOf(edit?.password.orEmpty())};var http by remember(edit){mutableStateOf(edit?.allowHttp?:false)};var format by remember(edit){mutableStateOf(edit?.format?:"m3u8")};var pairing by remember{mutableStateOf("")}
         Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){
+            TextButton(enabled=!busy,onClick={form=false;saved=secure.accounts()}){Text("‹ Saved accounts")}
             Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){Button(onClick={mode="server"},enabled=!busy){Text("Companion · my server")};Button(onClick={mode="direct"},enabled=!busy){Text("Standalone · Xtream")}}
             Text(if(mode=="server")"Your server manages providers, guide data and stream recovery." else "Connect directly to your provider. Credentials are encrypted on this device.",style=MaterialTheme.typography.bodyMedium)
             TvTextInput(value=base,onValueChange={base=it},label={Text(if(mode=="server")"Server address, e.g. http://192.168.1.10:8580" else "Provider server URL")},singleLine=true,modifier=Modifier.fillMaxWidth())
@@ -278,16 +315,19 @@ class MainActivity: ComponentActivity() {
             if(mode=="direct"){
                 Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){TvTextInput(value=user,onValueChange={user=it},label={Text("Username")},singleLine=true,modifier=Modifier.weight(1f));TvTextInput(value=password,onValueChange={password=it},label={Text("Password")},visualTransformation=PasswordVisualTransformation(),singleLine=true,modifier=Modifier.weight(1f))}
                 Row{RadioButton(selected=format=="m3u8",onClick={format="m3u8"});Text("HLS",Modifier.padding(top=14.dp));RadioButton(selected=format=="ts",onClick={format="ts"});Text("MPEG-TS",Modifier.padding(top=14.dp))}
-                Button(enabled=!busy,onClick={try{connect(Profile("direct",validateBase(base,http),username=user,password=password,format=format,allowHttp=http))}catch(e:Exception){status=e.message?:"Invalid address"}}){Text("Sign in & load channels")}
+                Button(enabled=!busy,onClick={try{connect(Profile("direct",validateBase(base,http),username=user,password=password,format=format,allowHttp=http),edit)}catch(e:Exception){status=e.message?:"Invalid address"}}){Text("Sign in & load channels")}
             }else{
+                val existing=edit
+                if(existing?.mode=="server")Button(enabled=!busy,onClick={try{val address=validateBase(base,http);require(address==existing.base){"Pair again to use a different server address"};connect(existing.copy(allowHttp=http),existing)}catch(e:Exception){status=e.message?:"Invalid address"}}){Text("Save connection")}
                 if(pairing.isNotEmpty())Text("Approve code $pairing in the server dashboard",style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
                 Button(enabled=!busy,onClick={connectJob?.cancel();connectJob=scope.launch{busy=true;try{
                     val address=validateBase(base,http);val pair=JSONObject(request(address+"/api/v1/pairing/requests",method="POST",body=JSONObject().put("name","Android TV")));pairing=pair.getString("code");status="Waiting for server approval"
-                    repeat(100){delay(3000);val result=JSONObject(request(address+"/api/v1/pairing/poll",method="POST",body=JSONObject().put("id",pair.getString("id")).put("deviceSecret",pair.getString("deviceSecret"))));if(result.optString("state")=="approved"){val p=Profile("server",address,token=result.getString("token"),allowHttp=http);pairing="";connectJob=null;connect(p);return@launch}}
+                    repeat(100){delay(3000);val result=JSONObject(request(address+"/api/v1/pairing/poll",method="POST",body=JSONObject().put("id",pair.getString("id")).put("deviceSecret",pair.getString("deviceSecret"))));if(result.optString("state")=="approved"){val p=Profile("server",address,token=result.getString("token"),allowHttp=http);pairing="";connectJob=null;connect(p,edit);return@launch}}
                     status="Pairing expired. Try again."
                 }catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:"Pairing failed"}finally{busy=false}}}){Text("Pair this device")}
             }
-            Text("Signal TV 0.5.0 · Live guide, custom groups and multiview.",style=MaterialTheme.typography.bodySmall)
+            Text("VynodeIPTV · Saved accounts and personal channel collections.",style=MaterialTheme.typography.bodySmall)
+            Text(status)
         }
     }
 }

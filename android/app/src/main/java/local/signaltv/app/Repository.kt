@@ -25,7 +25,7 @@ fun validateBase(value: String, allowHttp: Boolean): String {
 suspend fun request(url: String, token: String = "", method: String = "GET", body: JSONObject? = null): String = withContext(Dispatchers.IO) {
     val c = URL(url).openConnection() as HttpURLConnection
     try {
-        c.connectTimeout = 12000; c.readTimeout = 20000; c.requestMethod = method; c.instanceFollowRedirects = false
+        c.connectTimeout = 12000; c.readTimeout = if(url.contains("/refresh"))180000 else 20000; c.requestMethod = method; c.instanceFollowRedirects = false
         if (token.isNotEmpty()) c.setRequestProperty("Authorization", "Bearer $token")
         if (body != null) { c.doOutput = true; c.setRequestProperty("Content-Type","application/json");c.outputStream.use { it.write(body.toString().toByteArray()) } }
         val status = c.responseCode
@@ -42,6 +42,8 @@ interface Repository {
     val profile: Profile
     val connectionLimit: Int get()=6
     suspend fun channels(): List<Channel>
+    suspend fun refreshChannels():List<Channel> = channels()
+    suspend fun refreshEpg(channels:List<Channel>) {}
     suspend fun play(channel: Channel): Playback
     suspend fun heartbeat(id: String): Playback
     suspend fun stop(id: String)
@@ -49,6 +51,9 @@ interface Repository {
     suspend fun guide(channel: Channel): String = currentProgramme(programmes(channel),System.currentTimeMillis())?.title?:"No EPG data"
 }
 class ServerRepository(override val profile: Profile): Repository {
+    private fun checkRefresh(response:String){val result=JSONObject(response);check(result.keys().asSequence().all{result.optString(it).startsWith("Imported ")}){"Some providers could not refresh. Previous data was retained; check server settings."}}
+    override suspend fun refreshChannels():List<Channel>{checkRefresh(api("/channels/refresh","POST",JSONObject()));return channels()}
+    override suspend fun refreshEpg(channels:List<Channel>){checkRefresh(api("/guide/refresh","POST",JSONObject()))}
     private suspend fun api(path: String, method: String = "GET", body: JSONObject? = null) = request(profile.base + "/api/v1" + path, profile.token,method,body)
     override suspend fun channels(): List<Channel> { val a=JSONArray(api("/channels"));return (0 until a.length()).map { a.getJSONObject(it).let { Channel(it.getString("id"),it.getString("name"),it.optString("epgId"),it.optString("providerId")+":"+it.optString("category"),it.optString("categoryName","Other channels")) } } }
     suspend fun programmeBatch(channels:List<Channel>, from:Long, to:Long):Map<String,List<Programme>> {
@@ -68,7 +73,9 @@ class ServerRepository(override val profile: Profile): Repository {
     override suspend fun programmes(channel: Channel): List<Programme> { val data=JSONObject(api("/guide?channelId="+Uri.encode(channel.id))).getJSONArray("programmes");return (0 until data.length()).mapNotNull { data.getJSONObject(it).let { p -> runCatching { Programme(p.getString("title"),java.time.Instant.parse(p.getString("start")).toEpochMilli(),java.time.Instant.parse(p.getString("end")).toEpochMilli()) }.getOrNull() } } }
 
 }
-class XtreamRepository(override val profile: Profile): Repository {
+class XtreamRepository(override val profile: Profile,context:android.content.Context): Repository {
+    private val epgCache=EpgCache(context,profile)
+    override suspend fun refreshEpg(channels:List<Channel>){withContext(Dispatchers.IO){epgCache.save(importEpg(profile,channels))}}
     private val epgSlots=Semaphore(3)
     private var epgZone=java.time.ZoneId.systemDefault()
     override var connectionLimit: Int = 1
@@ -90,6 +97,7 @@ class XtreamRepository(override val profile: Profile): Repository {
     override suspend fun heartbeat(id: String)=error("Standalone playback has no server session")
     override suspend fun stop(id: String) {}
     override suspend fun programmes(channel: Channel): List<Programme> = epgSlots.withPermit {
+        withContext(Dispatchers.IO){epgCache.load()[channel.id]}?.takeIf{entries->entries.any{it.end>System.currentTimeMillis()}}?.let{return@withPermit it}
         suspend fun fetch(action:String):List<Programme>{
             val a=JSONObject(request(api(action).appendQueryParameter("stream_id",channel.id).apply{if(action=="get_short_epg")appendQueryParameter("limit","100")}.build().toString())).optJSONArray("epg_listings")?:return emptyList()
             return (0 until a.length()).mapNotNull{index->val p=a.optJSONObject(index)?:return@mapNotNull null

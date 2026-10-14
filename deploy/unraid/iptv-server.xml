@@ -11,7 +11,7 @@
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
   <Date>2026-10-12</Date>
-  <Changes>0.9.3: Uses Safari native video fullscreen when container fullscreen is unavailable; requests hidden browser navigation and reports fullscreen failures instead of silently expanding the player.</Changes>
+  <Changes>0.10.0: Saved provider account management, independent channel and EPG refresh, optional daily refresh, and retained favorites/group preferences when removing and restoring a provider login.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>
