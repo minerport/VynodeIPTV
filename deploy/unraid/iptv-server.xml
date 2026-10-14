@@ -11,7 +11,7 @@
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
   <Date>2026-10-14</Date>
-  <Changes>0.12.0: Optional TMDB programme enrichment with encrypted token settings, conservative title matching and cached artwork/metadata. Android supports both server enrichment and direct standalone TMDB connections. Existing storage mappings remain unchanged.</Changes>
+  <Changes>0.12.1: Fix browser security policy blocking TMDB artwork. Visible guide entries gain cached posters, year and genres in browser and Android. Preserve provider schedules and episode descriptions.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

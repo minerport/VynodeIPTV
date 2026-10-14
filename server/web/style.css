@@ -74,4 +74,12 @@ main{padding-left:max(3vw,env(safe-area-inset-left));padding-right:max(3vw,env(s
 .refresh-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.refresh-actions button{min-width:170px}
 
 .recording-dialog{width:min(850px,94vw);max-height:90dvh;overflow:auto}.recording-dialog input,.recording-dialog select{width:100%}.recording-dialog .panel{margin-top:1rem}.recording-dialog button{margin:.3rem}
-.metadata-feature{display:flex;gap:16px;align-items:flex-start;margin-top:12px}.metadata-feature img{width:80px;max-height:120px;object-fit:contain;border-radius:6px}.metadata-feature p{font-size:14px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.metadata-feature small,.metadata-feature a{display:block;margin:5px 0}.metadata-feature a{font-size:12px;color:#bfc9d4}
+.metadata-feature{display:flex;gap:16px;align-items:flex-start;margin-top:12px}.metadata-feature>div{min-width:0;flex:1}.metadata-feature img{flex:0 0 80px;width:80px;max-height:120px;object-fit:contain;border-radius:6px}.metadata-feature p{font-size:14px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.metadata-feature small,.metadata-feature a{display:block;margin:5px 0}.metadata-feature a{font-size:12px;color:#bfc9d4}
+
+/* Enriched guide cells retain their original timeline geometry and focus target. */
+.programme[data-enriched]{display:flex;align-items:center;gap:7px;padding:4px 7px}
+.programme-art{width:30px;height:46px;object-fit:cover;flex:none;border-radius:3px}
+.programme-copy{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.programme-copy small{margin-top:2px;overflow:hidden;text-overflow:ellipsis}
+.programme-copy .programme-facts{font-size:10px;color:var(--muted,#adadad)}
+@media(max-width:700px){.programme-art{width:24px;height:38px}.programme[data-enriched]{gap:4px;padding:3px}.programme-copy .programme-facts{font-size:9px}}

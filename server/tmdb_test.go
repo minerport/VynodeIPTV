@@ -153,3 +153,18 @@ func TestTMDBOutageAndProviderPreservation(t *testing.T) {
 		t.Fatal("provider guide changed")
 	}
 }
+
+func TestBrowserArtworkPolicy(t *testing.T) {
+	a := testApp(t)
+	response := call(a, "GET", "/", "", "")
+	if response.Code != 200 {
+		t.Fatal(response.Code)
+	}
+	policy := response.Header().Get("Content-Security-Policy")
+	if !strings.Contains(policy, "img-src 'self' data: https://image.tmdb.org;") {
+		t.Fatal("TMDB posters are blocked")
+	}
+	if !strings.Contains(policy, "connect-src 'self';") || !strings.Contains(policy, "script-src 'self';") {
+		t.Fatal("unrelated security policy relaxed")
+	}
+}

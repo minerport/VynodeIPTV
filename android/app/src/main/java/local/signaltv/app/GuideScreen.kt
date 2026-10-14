@@ -88,6 +88,18 @@ class GuideUiState {
         val last=state.channelScroll.layoutInfo.visibleItemsInfo.lastOrNull()?.index?:7
         filtered.drop((first-2).coerceAtLeast(0)).take((last-first+5).coerceIn(8,24))
     }}
+    val metadataService=remember{TmdbMetadata.get(context)}
+    val metadata=remember(repo.profile,metadataService.settingsRevision){mutableStateMapOf<String,Pair<Long,org.json.JSONObject?>>() }
+    val enrichment=visible.flatMap{cache[it.id]?.second.orEmpty()}.filter{it.end>start && it.start<start+5400000}.distinctBy{programmeMetadataKey(it)}.take(64)
+    LaunchedEffect(repo.profile,enrichment,metadataService.settingsRevision,now/60000){
+        delay(500)
+        for(p in enrichment){
+            val key=programmeMetadataKey(p)
+            if((metadata[key]?.first?:0L)>System.currentTimeMillis())continue
+            try{val result=metadataService.lookup(repo.profile,p);metadata[key]=(System.currentTimeMillis()+if(result==null)60000L else 7*86400000L) to result}catch(e:CancellationException){throw e}catch(_:Exception){}
+            while(metadata.size>200)metadata.remove(metadata.keys.first())
+        }
+    }
     val groupRows=(listOf(Triple("all","All channels",channels.size))+groups.map{Triple("custom:"+it.id,it.name,it.channelIds.size)}+providerGroups.map{(id,list)->Triple("provider:"+id,list.first().groupName,list.size)}).sortedWith(compareBy<Triple<String,String,Int>>{preferences.groupOrder.indexOf(it.first).let{index->if(index<0)Int.MAX_VALUE else index}}.thenBy{it.second.lowercase()}.thenBy{it.first})
     fun savePreferences(next: GuidePreferences){if(saving)return;saving=true;scope.launch{try{store.savePreferences(next);preferences=next}catch(e:Exception){message=e.message?:"Could not save preferences"}finally{saving=false}}}
     fun choose(id:String){selected=id;navigationOpen=false;scope.launch{state.channelScroll.scrollToItem(0);focusGuide=true}}
@@ -188,7 +200,7 @@ class GuideUiState {
                                 val left=(cell.start-start)/5400000f;val right=(cell.end-start)/5400000f;val p=cell.programme
                                 Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp)){
                                     if(p==null)Text(if(cache.containsKey(c.id))"No EPG data" else "Loading EPG…",Modifier.fillMaxSize().background(TvPalette.Track).padding(8.dp),color=TvPalette.Muted,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
-                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
+                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,metadata=metadata[programmeMetadataKey(p)]?.second,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
                                 }
                             }
                             if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(TvPalette.Signal))
@@ -228,10 +240,15 @@ class GuideUiState {
     editing?.let{g->GroupEditor(g,channels,onDismiss={editing=null},onSave={name,ids->scope.launch{try{store.save(g.copy(name=name,channelIds=ids));groups=store.load();editing=null;message="Group saved"}catch(e:Exception){message=e.message?:"Could not save group"}}},onDelete={scope.launch{try{store.delete(g.id);groups=store.load();selected="all";editing=null}catch(e:Exception){message=e.message?:"Could not delete group"}}})}
 }
 
-@Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, onFocused:()->Unit={}, action: ()->Unit){
+@Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, onFocused:()->Unit={}, action: ()->Unit){
     var focused by remember{mutableStateOf(false)}
     TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=48.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 0.dp,if(focused)TvPalette.Accent else Color.Transparent,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
-        Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=2,overflow=TextOverflow.Ellipsis,fontWeight=if(focused || selected)FontWeight.SemiBold else FontWeight.Normal,style=MaterialTheme.typography.bodyMedium,modifier=Modifier.fillMaxWidth())
+        val artwork=metadata?.optString("poster")?.takeIf{safeMetadataArtwork(it)}?:metadata?.optString("backdrop")?.takeIf{safeMetadataArtwork(it)}
+        if(artwork!=null)MetadataArtwork(artwork,Modifier.width(28.dp).height(40.dp).padding(end=4.dp))
+        Column(Modifier.weight(1f)){
+            Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=if(metadata==null)2 else 1,overflow=TextOverflow.Ellipsis,fontWeight=if(focused || selected)FontWeight.SemiBold else FontWeight.Normal,style=MaterialTheme.typography.bodyMedium)
+            if(metadata!=null)Text(listOf(metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=if(focused)TvPalette.OnAccent else TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis,fontSize=10.sp)
+        }
     }
 }
 

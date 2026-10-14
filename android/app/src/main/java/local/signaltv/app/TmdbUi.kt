@@ -15,6 +15,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.json.JSONObject
 
 @Composable fun TmdbSettings(profile:Profile?,dismiss:()->Unit){
@@ -42,10 +44,16 @@ import org.json.JSONObject
  return value
 }
 
+private val artworkRequests=Semaphore(2)
+private val artworkCache=object:android.util.LruCache<String,android.graphics.Bitmap>(8*1024*1024){
+ override fun sizeOf(key:String,value:android.graphics.Bitmap)=value.byteCount
+}
 @Composable fun MetadataArtwork(url:String,modifier:Modifier=Modifier){
- var bitmap by remember(url){mutableStateOf<android.graphics.Bitmap?>(null)}
- LaunchedEffect(url){if(!safeMetadataArtwork(url))return@LaunchedEffect;bitmap=withContext(Dispatchers.IO){runCatching{val c=java.net.URL(url).openConnection() as java.net.HttpURLConnection;try{c.instanceFollowRedirects=false;c.connectTimeout=5000;c.readTimeout=5000;check(c.responseCode==200);val bytes=c.inputStream.use{it.readBytesLimited(2*1024*1024)};BitmapFactory.decodeByteArray(bytes,0,bytes.size)}finally{c.disconnect()}}.getOrNull()}}
+ var bitmap by remember(url){mutableStateOf<android.graphics.Bitmap?>(artworkCache.get(url))}
+ LaunchedEffect(url){if(!safeMetadataArtwork(url)||bitmap!=null)return@LaunchedEffect;bitmap=artworkRequests.withPermit{withContext(Dispatchers.IO){runCatching{val c=java.net.URL(url).openConnection() as java.net.HttpURLConnection;try{c.instanceFollowRedirects=false;c.connectTimeout=5000;c.readTimeout=5000;check(c.responseCode==200);val bytes=c.inputStream.use{it.readBytesLimited(2*1024*1024)};BitmapFactory.decodeByteArray(bytes,0,bytes.size,BitmapFactory.Options().apply{inSampleSize=2})?.also{artworkCache.put(url,it)}}finally{c.disconnect()}}.getOrNull()}}}
  bitmap?.let{Image(it.asImageBitmap(),"Programme artwork from TMDB",modifier)}
 }
 
 fun metadataNames(data:JSONObject?,key:String):String {val a=data?.optJSONArray(key)?:return "";return (0 until a.length()).joinToString(", "){a.optString(it)}}
+
+fun programmeMetadataKey(p:Programme)=metadataTitle(cleanMetadataQuery(p.title,p.year).title)+"|"+cleanMetadataQuery(p.title,p.year).year

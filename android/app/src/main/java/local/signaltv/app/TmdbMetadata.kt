@@ -1,6 +1,7 @@
 package local.signaltv.app
 
 import android.content.Context
+import androidx.compose.runtime.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -21,14 +22,16 @@ suspend fun tmdbRequest(token:String,path:String):JSONObject=withContext(Dispatc
 fun java.io.InputStream.readBytesLimited(limit:Int):ByteArray{val out=java.io.ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=read(buffer);if(n<0)break;check(out.size()+n<=limit){"Metadata response too large"};out.write(buffer,0,n)};return out.toByteArray()}
 
 class TmdbMetadata private constructor(context:Context){
+ var settingsRevision by mutableIntStateOf(0)
+  private set
  private val secure=SecureProfile(context.applicationContext)
  private val file=File(context.filesDir,"tmdb-cache.json")
  private val mutex=Mutex()
  private var retryAt=0L
  private var entries:JSONObject?=null
  private fun cache():JSONObject{if(entries==null)entries=runCatching{if(file.length()>8*1024*1024)JSONObject() else JSONObject(file.readText())}.getOrDefault(JSONObject());return entries!!}
- suspend fun save(token:String,enabled:Boolean){if(enabled)tmdbRequest(token,"/configuration");mutex.withLock{withContext(Dispatchers.IO){secure.saveTmdb(JSONObject().put("token",token).put("enabled",enabled));retryAt=0}}}
- suspend fun disconnect(){mutex.withLock{withContext(Dispatchers.IO){secure.saveTmdb(JSONObject());entries=JSONObject();file.delete();retryAt=0}}}
+ suspend fun save(token:String,enabled:Boolean){if(enabled)tmdbRequest(token,"/configuration");mutex.withLock{withContext(Dispatchers.IO){secure.saveTmdb(JSONObject().put("token",token).put("enabled",enabled));retryAt=0;settingsRevision++}}}
+ suspend fun disconnect(){mutex.withLock{withContext(Dispatchers.IO){secure.saveTmdb(JSONObject());entries=JSONObject();file.delete();retryAt=0;settingsRevision++}}}
  private suspend fun resolve(token:String,q:MetadataQuery):JSONObject?{
   val result=tmdbRequest(token,"/search/multi?include_adult=false&language=en-US&query="+android.net.Uri.encode(q.title));val rows=result.optJSONArray("results")?:JSONArray()
   val candidates=(0 until rows.length()).map{rows.getJSONObject(it)}.map{r->val tv=r.optString("media_type")=="tv";MetadataCandidate(r.optInt("id"),r.optString("media_type"),r.optString(if(tv)"name" else "title"),r.optString(if(tv)"original_name" else "original_title"),r.optString(if(tv)"first_air_date" else "release_date"),r.optBoolean("adult"))}

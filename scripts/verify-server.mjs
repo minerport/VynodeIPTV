@@ -22,6 +22,7 @@ try{
  assert.equal((await req('/api/v1/metadata/lookup',{method:'POST',body:{title:'Synthetic programme'}})).state,'disabled');
  await req('/api/v1/metadata/settings',{token:'',status:401});
  assert.equal((await fetch(base+'/tmdb-logo.svg')).status,200);
+ const guidePage=await fetch(base+'/');assert.ok(guidePage.headers.get('content-security-policy').includes("img-src 'self' data: https://image.tmdb.org;"),'Browser must allow TMDB artwork');
  const pair=await req('/api/v1/pairing/requests',{token:'',method:'POST',body:{name:'Automated smoke test'},status:201});device=pair.id;
  await req('/api/v1/pairing/approve',{method:'POST',body:{id:pair.id,code:pair.code}});
  const paired=await req('/api/v1/pairing/poll',{token:'',method:'POST',body:{id:pair.id,deviceSecret:pair.deviceSecret}});

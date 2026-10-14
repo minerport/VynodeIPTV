@@ -51,7 +51,7 @@ import java.time.format.DateTimeFormatter
             metadata?.optString("poster")?.takeIf{safeMetadataArtwork(it)}?.let{MetadataArtwork(it,Modifier.width(55.dp).height(82.dp))}
             Column(Modifier.weight(1f)){
                 if(metadata!=null)Text(listOf(metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=TvPalette.Muted,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-                Text(metadata?.optString("overview")?.takeIf{it.isNotBlank()}?:programme?.description?.takeIf{it.isNotBlank()}?:if(channel==null)"Explore your channels, favorite the ones you love, and settle in." else if(programme==null)"No EPG data for this channel." else channel.name,
+                Text(programme?.description?.takeIf{it.isNotBlank()}?:metadata?.optString("overview")?.takeIf{it.isNotBlank()}?:if(channel==null)"Explore your channels, favorite the ones you love, and settle in." else if(programme==null)"No EPG data for this channel." else channel.name,
                     color=TvPalette.Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=3,overflow=TextOverflow.Ellipsis)
                 if(metadata!=null)Text("TMDB · "+(if(metadata.optString("kind")=="tv")"Series information" else "Movie information")+metadataNames(metadata,"cast").takeIf{it.isNotBlank()}?.let{" · $it"}.orEmpty(),fontSize=10.sp,color=TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
             }

@@ -1,5 +1,5 @@
 import {recordingUI} from './recordings.js';
-import {metadataPanel,metadataSettings} from './metadata.js';
+import {metadataPanel,metadataSettings,guideMetadata} from './metadata.js';
 import {VideoWall} from './wall.js';
 import {providerGroups,inGroup,clipProgramme,guideCells,orderedGroups,virtualRange} from './guide.js';
 const $=id=>document.getElementById(id),phoneLayout=matchMedia('(max-width:700px)');
@@ -34,7 +34,7 @@ function renderGuide(force=true){
  const list=filtered(),viewport=$('guide-viewport');if(viewport.scrollTop>Math.max(0,list.length*62-viewport.clientHeight))viewport.scrollTop=Math.max(0,list.length*62-viewport.clientHeight);
  const r=range(),signature=[selected,$('search').value,start,r.start,r.end,list.length].join('|');if(!force&&signature===lastWindow)return;lastWindow=signature;const focus=document.activeElement?.dataset.focusKey;
  $('time-labels').replaceChildren(...Array.from({length:duration/1800000},(_,i)=>el('span',time(start+i*1800000))));$('guide-date').textContent=new Date(start).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
- const target=$('guide-rows');target.replaceChildren();const spacer=height=>{const e=el('div');e.style.height=height+'px';e.setAttribute('aria-hidden','true');return e};target.append(spacer(r.top));
+ const enrichment=[];const target=$('guide-rows');target.replaceChildren();const spacer=height=>{const e=el('div');e.style.height=height+'px';e.setAttribute('aria-hidden','true');return e};target.append(spacer(r.top));
  for(const c of list.slice(r.start,r.end)){
   const row=el('div',null,'guide-row'),label=el('div',null,'channel-cell');
   const star=button(preferences.favorites.includes(c.id)?'★':'☆',()=>favorite(c),'favorite');star.setAttribute('aria-label',(preferences.favorites.includes(c.id)?'Remove '+c.name+' from':'Add '+c.name+' to')+' favorites');star.setAttribute('aria-pressed',String(preferences.favorites.includes(c.id)));star.dataset.focusKey='favorite:'+c.id;star.disabled=preferenceBusy;
@@ -44,11 +44,11 @@ function renderGuide(force=true){
   for(const cell of guideCells(cached?.programmes||[],start,duration)){
    const p=cell.programme,b=p?button(p.title?.trim()||'Untitled programme',()=>{dvr.programme(c,p,()=>tune(c))},'programme'+(Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now()?' live':'')):el('div',cached?'No EPG data':'Loading EPG…','programme epg-gap');
    b.style.left=(cell.start-start)/duration*100+'%';b.style.width=(cell.end-cell.start)/duration*100+'%';
-   if(p){b.dataset.focusKey='programme:'+c.id+':'+p.start;b.title=(p.title?.trim()||'Untitled programme')+' · '+time(p.start)+'–'+time(p.end);b.append(el('small',time(p.start)+'–'+time(p.end)));b.addEventListener('focus',()=>metadata.show(p));b.addEventListener('pointerenter',()=>metadata.show(p))}else b.title=cached?'No EPG data for this time':'Loading EPG';track.append(b);
+   if(p){enrichment.push({p,element:b});b.dataset.focusKey='programme:'+c.id+':'+p.start;b.title=(p.title?.trim()||'Untitled programme')+' · '+time(p.start)+'–'+time(p.end);b.append(el('small',time(p.start)+'–'+time(p.end)));b.addEventListener('focus',()=>metadata.show(p));b.addEventListener('pointerenter',()=>metadata.show(p))}else b.title=cached?'No EPG data for this time':'Loading EPG';track.append(b);
   }
   if(Date.now()>=start&&Date.now()<start+duration){const line=el('div',null,'now-line');line.style.left=(Date.now()-start)/duration*100+'%';track.append(line)}row.append(track);target.append(row);
  }target.append(spacer(r.bottom));if(!list.length)target.append(el('p',selected==='favorites'?'No favorites yet. Use the star beside any channel.':'No channels match this view.'));$('channel-total').textContent=list.length+' channels · Scroll to browse';
- if(focus)[...target.querySelectorAll('[data-focus-key]')].find(e=>e.dataset.focusKey===focus)?.focus({preventScroll:true});updateNowPlaying();
+ if(focus)[...target.querySelectorAll('[data-focus-key]')].find(e=>e.dataset.focusKey===focus)?.focus({preventScroll:true});updateNowPlaying();guideEnrichment.show(enrichment);
 }
 function updateNowPlaying(){if(!active)return;const p=(guideCache.get(active.channelId)?.programmes||[]).find(p=>Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now());$('playing-programme').textContent=p?p.title+' · '+time(p.start)+'–'+time(p.end):'Live channel · programme information unavailable';if(!document.activeElement?.classList.contains('programme'))metadata.show(p)}
 async function loadGuide(){
@@ -146,8 +146,9 @@ async function refreshLineup(){const next=await api('/channels');if(JSON.stringi
 const dvr=recordingUI({api,channels:()=>channels,token:()=>token,message,onPlay:()=>wall.suspend(),onStop:()=>wall.resume()});
 const metadataHost=el('div',null,'metadata-feature');document.querySelector('.watch-info').append(metadataHost);
 const metadata=metadataPanel(api,metadataHost);
-const tmdbSettings=metadataSettings(api,$('settings'),()=>metadata.reset(),message);
+const guideEnrichment=guideMetadata(api);
+const tmdbSettings=metadataSettings(api,$('settings'),()=>{metadata.reset();guideEnrichment.reset();renderGuide()},message);
 $('settings-tab').addEventListener('click',()=>tmdbSettings.load().catch(e=>message(e.message,true)));
-$('logout').addEventListener('click',()=>metadata.reset());
+$('logout').addEventListener('click',()=>{metadata.reset();guideEnrichment.reset()});
 $('recordings-tab').onclick=()=>dvr.library().catch(e=>message(e.message,true));
 $('record-now').onclick=()=>{const c=channels.find(c=>c.id===active?.channelId);dvr.schedule(c,c?(guideCache.get(c.id)?.programmes||[]).find(p=>Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now()):null)};
