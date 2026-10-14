@@ -32,31 +32,34 @@ type Pairing struct {
 	approved bool
 }
 type App struct {
-	recordings      string
-	recordingLeases map[string]string
-	dvrWake         chan struct{}
-	imports         map[string]importStatus
-	catalogMu       sync.Mutex
-	accountMu       sync.RWMutex
-	login           loginState
-	mu              sync.Mutex
-	store           *Store
-	admin           string
-	scratch, ffmpeg string
-	demo            bool
-	channels        []Channel
-	guide           []Programme
-	sessions        map[string]*Session
-	pairings        map[string]*Pairing
-	lastPair        map[string]time.Time
-	syncing         bool
-	guideStatus     string
+	recordings         string
+	recordingLeases    map[string]string
+	recordingPlaybacks map[string]*recordingPlayback
+	closing            bool
+	dvrWake            chan struct{}
+	imports            map[string]importStatus
+	catalogMu          sync.Mutex
+	accountMu          sync.RWMutex
+	login              loginState
+	mu                 sync.Mutex
+	store              *Store
+	admin              string
+	scratch, ffmpeg    string
+	demo               bool
+	channels           []Channel
+	guide              []Programme
+	sessions           map[string]*Session
+	pairings           map[string]*Pairing
+	lastPair           map[string]time.Time
+	syncing            bool
+	guideStatus        string
 }
 
 func newApp(s *Store, token, scratch, ffmpeg string, demo bool) *App {
 	a := &App{store: s, admin: token, scratch: scratch, ffmpeg: ffmpeg, demo: demo, sessions: map[string]*Session{}, pairings: map[string]*Pairing{}, lastPair: map[string]time.Time{}, channels: []Channel{}, guide: []Programme{}, guideStatus: "Not imported"}
 	a.recordings = filepath.Join(s.dir, "recordings")
 	a.recordingLeases = map[string]string{}
+	a.recordingPlaybacks = map[string]*recordingPlayback{}
 	a.dvrWake = make(chan struct{}, 1)
 	a.loadLogin()
 	if demo {
@@ -132,12 +135,13 @@ func (a *App) routes() http.Handler {
 	m := http.NewServeMux()
 	a.loginRoutes(m)
 	a.recordingRoutes(m)
+	a.recordingPlaybackRoutes(m)
 	a.groupRoutes(m)
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]string{"status": "ok", "version": "0.11.0"})
+		send(w, 200, map[string]string{"status": "ok", "version": "0.11.1"})
 	})
 	m.HandleFunc("GET /api/v1/capabilities", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.11.0", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
+		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.11.1", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
 	}))
 	m.HandleFunc("GET /api/v1/channels", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()

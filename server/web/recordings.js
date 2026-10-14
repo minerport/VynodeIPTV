@@ -2,10 +2,10 @@ import {enterNativeFullscreen} from './wall.js';
 
 export function recordingUI({api,channels,token,message,onPlay=()=>{},onStop=()=>{}}) {
  const dialog=document.createElement('dialog');dialog.className='recording-dialog';document.body.append(dialog);
- let hls=null,video=null,playing=null,poll=null;
+ let hls=null,video=null,playing=null,poll=null,epoch=0,preparation=null;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n};
  const action=(text,fn)=>{const b=node('button',text);b.type='button';b.onclick=async()=>{b.disabled=true;try{await fn()}catch(e){message(e.message,true)}finally{b.disabled=false}};return b};
- const stop=()=>{if(video&&playing)api('/recordings/'+playing.id+'/resume','PUT',{seconds:video.currentTime||0}).catch(()=>{});hls?.destroy();hls=null;video?.pause();if(playing)onStop();video=null;playing=null;clearInterval(poll)};
+ const stop=()=>{epoch++;if(video&&playing&&hls&&(video.readyState>=1||video.currentTime>0))api('/recordings/'+playing.id+'/resume','PUT',{seconds:video.currentTime||0}).catch(()=>{});const old=preparation;preparation=null;if(old)old.ready.then(()=>{if(preparation?.id!==old.id)return api('/recordings/'+old.id+'/playback','DELETE')}).catch(()=>{});hls?.destroy();hls=null;video?.pause();if(playing)onStop();video=null;playing=null;clearInterval(poll)};
  dialog.addEventListener('close',stop);
  function shell(title){stop();dialog.replaceChildren(node('h2',title),action('Close',()=>dialog.close()));if(!dialog.open)dialog.showModal()}
  function input(form,label,type,value){const l=node('label',label),i=node('input');i.type=type;i.value=value;i.required=true;l.append(i);form.append(l);return i}
@@ -21,10 +21,25 @@ export function recordingUI({api,channels,token,message,onPlay=()=>{},onStop=()=
   const submit=node('button','Save recording');form.append(submit);form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;try{await api('/recordings','POST',{channelId:select.value,title:title.value,start:new Date(start.value).toISOString(),end:new Date(end.value).toISOString(),beforeMinutes:Number(before.value),afterMinutes:Number(after.value)});message('Recording scheduled');await library()}catch(e){message(e.message,true)}finally{submit.disabled=false}};
  }
  async function play(job){
-  shell(job.title);onPlay();video=node('video');video.controls=true;video.playsInline=true;video.style.width='100%';playing=job;dialog.append(video,action('Fullscreen',()=>enterNativeFullscreen(video,video)));
   if(!window.Hls?.isSupported())throw Error('Recorded playback requires a browser supporting authenticated HLS, such as current Chrome, Edge or Firefox.');
-  hls=new Hls({xhrSetup:(xhr,url)=>{const u=new URL(url,location.href);if(u.origin!==location.origin||!u.pathname.startsWith('/recorded/'))throw Error('Unexpected recording address');xhr.setRequestHeader('Authorization','Bearer '+token())}});
-  hls.on(Hls.Events.MANIFEST_PARSED,()=>{video.currentTime=job.resume||0;video.play().catch(()=>{})});hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal)message('Recording cannot be decoded in this browser. Original provider codecs are retained; try the Android app.',true)});hls.loadSource('/recorded/'+job.id+'/recording.m3u8');hls.attachMedia(video);
+  shell(job.title);onPlay();video=node('video');video.controls=true;video.playsInline=true;video.style.width='100%';playing=job;dialog.append(video,action('Fullscreen',()=>enterNativeFullscreen(video,video)));
+  const version=epoch,player=video,status=node('p','Preparing browser playback…'),resume=Math.max(0,job.resume||0);dialog.append(status);
+  const current=()=>version===epoch&&playing===job;
+  const ready=api('/recordings/'+job.id+'/playback','POST',{});preparation={id:job.id,ready};
+  let checking=false;
+  const update=state=>{
+   if(!current())return;
+   status.textContent=state.state==='complete'?'Browser copy ready':`Preparing playback · ${Math.floor(state.availableSeconds||0)} seconds ready`;
+   if(state.state==='failed'){clearInterval(poll);status.textContent=state.reason;message(state.reason,true);return;}
+   if(!hls&&(state.state==='complete'||state.availableSeconds>=resume+12)){
+    const instance=new Hls({startPosition:resume,maxBufferLength:30,backBufferLength:15,xhrSetup:(xhr,url)=>{const u=new URL(url,location.href);if(u.origin!==location.origin||!u.pathname.startsWith('/recorded/'))throw Error('Unexpected recording address');xhr.setRequestHeader('Authorization','Bearer '+token())}});hls=instance;
+    instance.on(Hls.Events.MANIFEST_PARSED,()=>{if(current())player.play().catch(()=>{status.textContent='Press Play to start the recording';})});
+    instance.on(Hls.Events.ERROR,(_,d)=>{if(current()&&d.fatal){status.textContent='Recording playback failed. Close and reopen to retry.';message(status.textContent,true)}});
+    instance.loadSource(state.mediaUrl);instance.attachMedia(player);
+   }
+   if(state.state==='complete')clearInterval(poll);
+  };
+  try{const state=await ready;if(!current())return;update(state);if(state.state==='preparing')poll=setInterval(async()=>{if(checking||!current())return;checking=true;try{update(await api('/recordings/'+job.id+'/playback'))}catch(e){if(current())status.textContent=e.message}finally{checking=false}},1500)}catch(e){if(current()){status.textContent=e.message;throw e}}
  }
  async function library(){
   shell('Recordings');dialog.append(action('Schedule a recording',()=>schedule()));const list=node('div');dialog.append(list);

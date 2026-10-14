@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: '22'
       - name: Go race tests and vet
-        run: docker run --rm -v "$PWD/server:/src" -w /src golang:1.27.2-bookworm sh -c 'go test -race ./... && go vet ./...'
+        run: docker run --rm -v "$PWD/server:/src" -w /src golang:1.27.2-bookworm sh -c 'apt-get update -qq && apt-get install -y -qq ffmpeg >/dev/null && go test -race ./... && go vet ./...'
       - name: Browser behavior tests
         run: npm test
       - name: Build Unraid image

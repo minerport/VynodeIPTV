@@ -109,6 +109,10 @@ func (a *App) recordingRoutes(m *http.ServeMux) {
 		}
 		a.mu.Lock()
 		defer a.mu.Unlock()
+		if p := a.recordingPlaybacks[j.ID]; p != nil && p.state == "preparing" {
+			fail(w, 409, "Close recording playback before deleting")
+			return
+		}
 		if _, active := a.recordingLeases[j.ID]; active || pendingRecording(j) {
 			fail(w, 409, "Cancel the recording and wait for it to stop before deleting")
 			return
@@ -117,6 +121,7 @@ func (a *App) recordingRoutes(m *http.ServeMux) {
 			fail(w, 500, "Cannot remove recording files")
 			return
 		}
+		delete(a.recordingPlaybacks, j.ID)
 		if err := a.store.update(func(s *State) {
 			out := []Recording{}
 			for _, v := range s.Recordings {
@@ -137,7 +142,7 @@ func (a *App) recordingRoutes(m *http.ServeMux) {
 			return
 		}
 		file := r.PathValue("file")
-		if !recordingFile.MatchString(file) {
+		if !recordingFile.MatchString(file) && !browserRecordingFile.MatchString(file) {
 			fail(w, 404, "Media not found")
 			return
 		}
@@ -350,7 +355,7 @@ func (a *App) runDVR(ctx context.Context) {
 				reason = "Recording window elapsed"
 			} else if p.ID == "" {
 				reason = "Saved provider was removed"
-			} else if len(a.sessions)+len(a.recordingLeases) >= 8 {
+			} else if a.closing || len(a.sessions)+len(a.recordingLeases)+a.preparingRecordingsLocked() >= 8 {
 				reason = "Server worker limit reached"
 			} else if count >= max(1, p.MaxConnections) {
 				reason = "Provider connection limit reached; existing streams were preserved"

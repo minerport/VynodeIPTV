@@ -142,6 +142,6 @@ $('settings-tab').addEventListener('click',()=>loadRefreshSettings().catch(e=>me
 
 async function refreshLineup(){const next=await api('/channels');if(JSON.stringify(next)!==JSON.stringify(channels)){channels=next;$('channel-count').textContent=channels.length;renderGroups();renderGuide()}await loadGuide()}
 
-const dvr=recordingUI({api,channels:()=>channels,token:()=>token,message,onPlay:()=>wall.tiles.forEach(t=>t.video.muted=true),onStop:()=>{if(wall.selected)wall.select(wall.selected)}});
+const dvr=recordingUI({api,channels:()=>channels,token:()=>token,message,onPlay:()=>wall.suspend(),onStop:()=>wall.resume()});
 $('recordings-tab').onclick=()=>dvr.library().catch(e=>message(e.message,true));
 $('record-now').onclick=()=>{const c=channels.find(c=>c.id===active?.channelId);dvr.schedule(c,c?(guideCache.get(c.id)?.programmes||[]).find(p=>Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now()):null)};

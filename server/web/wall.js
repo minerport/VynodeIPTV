@@ -21,7 +21,9 @@ export class VideoWall {
  enqueue(action){const result=this.queue.catch(()=>{}).then(action);this.queue=result;return result;}
  layout(count){if(count<this.tiles.length)throw Error('Remove streams before choosing a smaller layout.');this.capacity=count;this.render();}
  render(){this.host.dataset.layout=this.capacity;this.host.classList.toggle('wall-mode',this.capacity>1);this.onChange(this);}
- select(tile){this.selected=tile;for(const t of this.tiles){t.video.muted=t!==tile;t.node.classList.toggle('selected',t===tile);}this.onChange(this);}
+ select(tile){this.selected=tile;for(const t of this.tiles){t.video.muted=!!this.suspended||t!==tile;t.node.classList.toggle('selected',t===tile);}this.onChange(this);}
+ suspend(){this.suspended=true;for(const t of this.tiles){this.destroyMedia(t);t.video.muted=true;t.status='Paused while playing recording';}this.onChange(this);}
+ resume(){this.suspended=false;for(const t of this.tiles){t.retryAt=0;t.retries=0;if(t.session.state==='playing')this.attach(t);}this.select(this.selected);}
  async add(channel){return this.enqueue(async()=>{
   if(!window.Hls?.isSupported())throw Error('Use a current Chrome, Edge or Firefox browser for authenticated playback.');
   if(this.capacity===1)await this.clearTiles();
@@ -36,7 +38,7 @@ export class VideoWall {
   this.tiles.push(tile);this.select(tile);this.render();if(session.state==='playing')this.attach(tile);
  });}
  destroyMedia(t){t.hls?.destroy();t.hls=null;t.video.pause();t.video.removeAttribute('src');t.video.load();}
- attach(t){if(t.removed)return;this.destroyMedia(t);t.generation=t.session.generation;t.lastTime=0;t.lastProgress=Date.now();t.healthySince=0;
+ attach(t){if(t.removed||this.suspended)return;this.destroyMedia(t);t.generation=t.session.generation;t.lastTime=0;t.lastProgress=Date.now();t.healthySince=0;
   const instance=new Hls({liveSyncDurationCount:3,maxBufferLength:24,backBufferLength:6,xhrSetup:(xhr,url)=>{const u=new URL(url,location.href);if(u.origin!==location.origin||!u.pathname.startsWith('/media/'))throw Error('Unexpected media address');xhr.setRequestHeader('Authorization','Bearer '+this.auth());}});t.hls=instance;
   instance.on(Hls.Events.MANIFEST_PARSED,()=>{if(t.removed||t.hls!==instance)return;t.video.play().catch(()=>{t.status='Select Enable audio / play to begin';this.onChange(this);});});
   instance.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal&&t.hls===instance)this.recover(t,'Browser decoder or network interrupted');});instance.loadSource(t.session.mediaUrl);instance.attachMedia(t.video);
@@ -44,6 +46,7 @@ export class VideoWall {
  recover(t,reason){if(t.retryAt||t.removed)return;if(t.retries>=5){t.status='Recovery limit reached. Remove this tile and select the channel to retry.';this.destroyMedia(t);this.onChange(this);return;}t.healthySince=0;t.retries++;t.status=reason+' · retry '+t.retries+'/5';t.retryAt=Date.now()+Math.min(16000,1000*2**(t.retries-1));this.onChange(this);}
  async poll(){await Promise.all(this.tiles.map(async t=>{if(t.polling||t.removed)return;t.polling=true;try{
   const s=await this.api('/playback/sessions/'+t.session.id+'/heartbeat','POST',{});if(t.removed)return;t.session=s;
+  if(this.suspended)return;
   if(s.state==='failed'||s.state==='stopped'){this.destroyMedia(t);t.status=s.reason;t.retryAt=0;return;}
   if(s.state!=='playing'){t.status=s.reason;return;}
   if(t.generation!==s.generation){t.retryAt=0;t.retries=0;this.attach(t);}

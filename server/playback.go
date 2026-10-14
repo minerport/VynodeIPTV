@@ -68,7 +68,7 @@ func (s *Session) set(state, reason string) {
 func (a *App) startSession(owner string, c Channel, p Provider, profiles ...string) (*Session, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.sessions)+len(a.recordingLeases) >= 8 {
+	if a.closing || len(a.sessions)+len(a.recordingLeases)+a.preparingRecordingsLocked() >= 8 {
 		return nil, fmt.Errorf("Server session limit reached")
 	}
 	count := 0
@@ -305,12 +305,23 @@ func (a *App) reap(ctx context.Context) {
 }
 func (a *App) close() {
 	a.mu.Lock()
+	a.closing = true
+	preparations := []*recordingPlayback{}
+	for _, p := range a.recordingPlaybacks {
+		if p.state == "preparing" {
+			p.cancel()
+		}
+		preparations = append(preparations, p)
+	}
 	all := []*Session{}
 	for _, s := range a.sessions {
 		s.cancel()
 		all = append(all, s)
 	}
 	a.mu.Unlock()
+	for _, p := range preparations {
+		<-p.done
+	}
 	for _, s := range all {
 		<-s.done
 	}

@@ -42,6 +42,18 @@ try{
  const sample=await fetch(new URL(recordedSegment,base+recordedPath),{headers:{Authorization:'Bearer '+admin}});assert.equal(sample.status,200);assert.equal(new Uint8Array(await sample.arrayBuffer())[0],0x47);
  await req(`/api/v1/recordings/${recording}/resume`,{method:'PUT',body:{seconds:3}});
  assert.equal((await req('/api/v1/recordings')).find(j=>j.id===recording).resume,3);
- const result={passed:true,checks:['unauthenticated API denied','pairing approved with device secret','device denied administration','authenticated HLS generated','MPEG-TS segment received','unauthenticated media denied','worker interruption recovered','segment freshness and recovery history reported','scheduled DVR completed independently of live playback','recorded MPEG-TS retrieved with authentication','recording ownership enforced','recording resume persisted'],initialGeneration:first.generation,recoveredGeneration:recovered.generation,segmentBytes:bytes.length};
+ const browserPath=`/api/v1/recordings/${recording}/playback`;
+ await req(browserPath,{token:paired.token,method:'POST',body:{},status:404});
+ await req(browserPath,{method:'POST',body:{}});
+ let browser;
+ for(let i=0;i<40;i++){browser=await req(browserPath);if(browser.state==='failed')throw Error(browser.reason);if(browser.state==='complete')break;await sleep(1000)}
+ assert.equal(browser.state,'complete');assert.ok(browser.availableSeconds>10);
+ const browserManifest=await fetch(base+browser.mediaUrl,{headers:{Authorization:'Bearer '+admin}});assert.equal(browserManifest.status,200);const browserText=await browserManifest.text();assert.match(browserText,/#EXT-X-ENDLIST/);
+ const browserSegment=browserText.split('\n').find(l=>l.startsWith('browser-'));assert.ok(browserSegment);
+ assert.equal((await fetch(new URL(browserSegment,base+browser.mediaUrl),{headers:{Authorization:'Bearer '+admin}})).status,200);
+ assert.equal((await fetch(base+browser.mediaUrl)).status,401);
+ assert.equal(await (await fetch(base+recordedPath,{headers:{Authorization:'Bearer '+admin}})).text(),manifest,'Original recording retained');
+ assert.equal((await req(browserPath,{method:'POST',body:{}})).state,'complete','Completed cache reused');
+ const result={passed:true,checks:['unauthenticated API denied','pairing approved with device secret','device denied administration','authenticated HLS generated','MPEG-TS segment received','unauthenticated media denied','worker interruption recovered','segment freshness and recovery history reported','scheduled DVR completed independently of live playback','recorded MPEG-TS retrieved with authentication','recording ownership enforced','recording resume persisted','browser recording conversion completed','derived media authenticated and original retained','completed browser cache reused'],initialGeneration:first.generation,recoveredGeneration:recovered.generation,segmentBytes:bytes.length};
  await writeFile(new URL('../.local/verification/server-result.json',import.meta.url),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
-}finally{if(recording){await req(`/api/v1/recordings/${recording}/cancel`,{method:"POST",body:{}}).catch(()=>{});await req(`/api/v1/recordings/${recording}`,{method:"DELETE"}).catch(()=>{})}if(session)await req('/api/v1/playback/sessions/'+session,{method:'DELETE'}).catch(()=>{});if(device)await req('/api/v1/devices/'+device,{method:'DELETE'}).catch(()=>{})}
+}finally{if(recording){await req(`/api/v1/recordings/${recording}/playback`,{method:'DELETE'}).catch(()=>{});await req(`/api/v1/recordings/${recording}/cancel`,{method:"POST",body:{}}).catch(()=>{});await req(`/api/v1/recordings/${recording}`,{method:"DELETE"}).catch(()=>{})}if(session)await req('/api/v1/playback/sessions/'+session,{method:'DELETE'}).catch(()=>{});if(device)await req('/api/v1/devices/'+device,{method:'DELETE'}).catch(()=>{})}

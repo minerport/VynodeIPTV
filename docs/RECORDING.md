@@ -1,4 +1,4 @@
-# Built-in recording (0.11.0 preview)
+# Built-in recording (server 0.11.1 / Android 0.11.0 preview)
 
 Recording is part of VynodeIPTV. No separate DVR application or subscription is required.
 
@@ -33,7 +33,8 @@ The server accepts either provider HLS or MPEG-TS, records original codecs using
 - The library shows scheduled, recording, completed, partial, failed and cancelled results. Completed/partial footage can be played/resumed. Cancellation keeps existing footage. Deletion is explicit; no automatic retention deletion runs.
 - Server storage must have at least 512 MiB free before and during capture. Android checks 512 MiB before creating a part and stops below 128 MiB during writes. These reserves are safeguards, not estimates of enough space for the whole programme.
 - Schedules retain the chosen title and UTC time window. EPG changes do **not** automatically retime recordings in this version; review changed programme schedules manually.
-- Original codecs are retained. Some browser/codec combinations cannot play a recording; use Android where the device decoder supports the codec. No recording conversion job is included yet.
+- Browser playback prepares a separate H.264/AAC copy (up to 720p, 30 fps, stereo), with audio clock correction. Existing recordings benefit too; the original provider-quality files are retained for Android. Playback begins after 12 seconds beyond the resume position are prepared, or when conversion completes. Preparing a long recording at a late resume point can take time. Preparation uses CPU and additional space alongside the original in `/recordings`; it does not contact the provider or consume another provider connection. One preparation runs at a time, within the combined eight-worker limit. It stops if free space falls below 512 MiB or output stops progressing for 90 seconds. Slow CPUs may still rebuffer during preparation; a completed copy is reused on subsequent plays and across server restarts.
+- Closing the recording player cancels unfinished preparation; reopening starts that preparation again. Completed copies remain until the recording is explicitly deleted. Browser wall decoders pause during recorded playback and resume on close; server live sessions retain their leases. Conversion cannot recreate missing footage or guarantee repair of a damaged source recording.
 - Series rules, shared live/recording ingest, watch-while-recording, automatic retention and automatic EPG-change reconciliation remain future work.
 
 ## Device acceptance checklist
