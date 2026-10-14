@@ -1,4 +1,5 @@
 import {recordingUI} from './recordings.js';
+import {metadataPanel,metadataSettings} from './metadata.js';
 import {VideoWall} from './wall.js';
 import {providerGroups,inGroup,clipProgramme,guideCells,orderedGroups,virtualRange} from './guide.js';
 const $=id=>document.getElementById(id),phoneLayout=matchMedia('(max-width:700px)');
@@ -43,13 +44,13 @@ function renderGuide(force=true){
   for(const cell of guideCells(cached?.programmes||[],start,duration)){
    const p=cell.programme,b=p?button(p.title?.trim()||'Untitled programme',()=>{dvr.programme(c,p,()=>tune(c))},'programme'+(Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now()?' live':'')):el('div',cached?'No EPG data':'Loading EPG…','programme epg-gap');
    b.style.left=(cell.start-start)/duration*100+'%';b.style.width=(cell.end-cell.start)/duration*100+'%';
-   if(p){b.dataset.focusKey='programme:'+c.id+':'+p.start;b.title=(p.title?.trim()||'Untitled programme')+' · '+time(p.start)+'–'+time(p.end);b.append(el('small',time(p.start)+'–'+time(p.end)))}else b.title=cached?'No EPG data for this time':'Loading EPG';track.append(b);
+   if(p){b.dataset.focusKey='programme:'+c.id+':'+p.start;b.title=(p.title?.trim()||'Untitled programme')+' · '+time(p.start)+'–'+time(p.end);b.append(el('small',time(p.start)+'–'+time(p.end)));b.addEventListener('focus',()=>metadata.show(p));b.addEventListener('pointerenter',()=>metadata.show(p))}else b.title=cached?'No EPG data for this time':'Loading EPG';track.append(b);
   }
   if(Date.now()>=start&&Date.now()<start+duration){const line=el('div',null,'now-line');line.style.left=(Date.now()-start)/duration*100+'%';track.append(line)}row.append(track);target.append(row);
  }target.append(spacer(r.bottom));if(!list.length)target.append(el('p',selected==='favorites'?'No favorites yet. Use the star beside any channel.':'No channels match this view.'));$('channel-total').textContent=list.length+' channels · Scroll to browse';
  if(focus)[...target.querySelectorAll('[data-focus-key]')].find(e=>e.dataset.focusKey===focus)?.focus({preventScroll:true});updateNowPlaying();
 }
-function updateNowPlaying(){if(!active)return;const p=(guideCache.get(active.channelId)?.programmes||[]).find(p=>Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now());$('playing-programme').textContent=p?p.title+' · '+time(p.start)+'–'+time(p.end):'Live channel · programme information unavailable'}
+function updateNowPlaying(){if(!active)return;const p=(guideCache.get(active.channelId)?.programmes||[]).find(p=>Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now());$('playing-programme').textContent=p?p.title+' · '+time(p.start)+'–'+time(p.end):'Live channel · programme information unavailable';if(!document.activeElement?.classList.contains('programme'))metadata.show(p)}
 async function loadGuide(){
  const revision=++guideRevision,windowStart=Math.floor(start/21600000)*21600000,ids=visible().filter(c=>{const cached=guideCache.get(c.id);return !cached||cached.start!==windowStart||Date.now()-cached.fetched>60000}).map(c=>c.id);if(!ids.length)return
  $('epg-message').textContent='Loading guide…';try{const data=await api('/guide?'+new URLSearchParams({channelIds:ids.join(','),from:new Date(windowStart).toISOString(),to:new Date(windowStart+43200000).toISOString()}));if(windowStart!==Math.floor(start/21600000)*21600000||revision!==guideRevision)return;
@@ -143,5 +144,10 @@ $('settings-tab').addEventListener('click',()=>loadRefreshSettings().catch(e=>me
 async function refreshLineup(){const next=await api('/channels');if(JSON.stringify(next)!==JSON.stringify(channels)){channels=next;$('channel-count').textContent=channels.length;renderGroups();renderGuide()}await loadGuide()}
 
 const dvr=recordingUI({api,channels:()=>channels,token:()=>token,message,onPlay:()=>wall.suspend(),onStop:()=>wall.resume()});
+const metadataHost=el('div',null,'metadata-feature');document.querySelector('.watch-info').append(metadataHost);
+const metadata=metadataPanel(api,metadataHost);
+const tmdbSettings=metadataSettings(api,$('settings'),()=>metadata.reset(),message);
+$('settings-tab').addEventListener('click',()=>tmdbSettings.load().catch(e=>message(e.message,true)));
+$('logout').addEventListener('click',()=>metadata.reset());
 $('recordings-tab').onclick=()=>dvr.library().catch(e=>message(e.message,true));
 $('record-now').onclick=()=>{const c=channels.find(c=>c.id===active?.channelId);dvr.schedule(c,c?(guideCache.get(c.id)?.programmes||[]).find(p=>Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now()):null)};

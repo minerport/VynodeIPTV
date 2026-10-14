@@ -1,13 +1,14 @@
 import {enterNativeFullscreen} from './wall.js';
+import {metadataPanel} from './metadata.js';
 
 export function recordingUI({api,channels,token,message,onPlay=()=>{},onStop=()=>{}}) {
  const dialog=document.createElement('dialog');dialog.className='recording-dialog';document.body.append(dialog);
- let hls=null,video=null,playing=null,poll=null,epoch=0,preparation=null;
+ let hls=null,video=null,playing=null,poll=null,epoch=0,preparation=null,details=null;
  const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n};
  const action=(text,fn)=>{const b=node('button',text);b.type='button';b.onclick=async()=>{b.disabled=true;try{await fn()}catch(e){message(e.message,true)}finally{b.disabled=false}};return b};
  const stop=()=>{epoch++;if(video&&playing&&hls&&(video.readyState>=1||video.currentTime>0))api('/recordings/'+playing.id+'/resume','PUT',{seconds:video.currentTime||0}).catch(()=>{});const old=preparation;preparation=null;if(old)old.ready.then(()=>{if(preparation?.id!==old.id)return api('/recordings/'+old.id+'/playback','DELETE')}).catch(()=>{});hls?.destroy();hls=null;video?.pause();if(playing)onStop();video=null;playing=null;clearInterval(poll)};
- dialog.addEventListener('close',stop);
- function shell(title){stop();dialog.replaceChildren(node('h2',title),action('Close',()=>dialog.close()));if(!dialog.open)dialog.showModal()}
+ dialog.addEventListener('close',()=>{stop();details?.reset()});
+ function shell(title){details?.reset();stop();dialog.replaceChildren(node('h2',title),action('Close',()=>dialog.close()));if(!dialog.open)dialog.showModal()}
  function input(form,label,type,value){const l=node('label',label),i=node('input');i.type=type;i.value=value;i.required=true;l.append(i);form.append(l);return i}
  const local=d=>new Date(d-new Date(d).getTimezoneOffset()*60000).toISOString().slice(0,16);
  function schedule(channel,programme){
@@ -49,6 +50,6 @@ export function recordingUI({api,channels,token,message,onPlay=()=>{},onStop=()=
     else {if(j.bytes>0)row.append(action(j.resume?'Resume':'Play',()=>play(j)));row.append(action('Delete',async()=>{if(!confirm('Delete this recording permanently?'))return;await api('/recordings/'+j.id,'DELETE');await refresh()}))}list.append(row)}
   };await refresh();poll=setInterval(()=>refresh().catch(()=>{}),5000);
  }
- function programme(channel,p,onWatch){shell(p.title);dialog.append(node('p',new Date(p.start).toLocaleString()+' – '+new Date(p.end).toLocaleTimeString()),action('Watch channel live',async()=>{dialog.close();await onWatch()}),action('Record programme',()=>schedule(channel,p)))}
+ function programme(channel,p,onWatch){shell(p.title);dialog.append(node('p',new Date(p.start).toLocaleString()+' – '+new Date(p.end).toLocaleTimeString()),action('Watch channel live',async()=>{dialog.close();await onWatch()}),action('Record programme',()=>schedule(channel,p)));const host=node('div');host.className='metadata-feature';dialog.append(host);details=metadataPanel(api,host);details.show(p)}
  return {schedule,library,programme};
 }

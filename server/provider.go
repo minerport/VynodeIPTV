@@ -27,10 +27,12 @@ type Channel struct {
 	CategoryName string `json:"categoryName"`
 }
 type Programme struct {
-	ChannelID string    `json:"channelId"`
-	Title     string    `json:"title"`
-	Start     time.Time `json:"start"`
-	End       time.Time `json:"end"`
+	Description string    `json:"description,omitempty"`
+	Year        string    `json:"year,omitempty"`
+	ChannelID   string    `json:"channelId"`
+	Title       string    `json:"title"`
+	Start       time.Time `json:"start"`
+	End         time.Time `json:"end"`
 }
 
 func validateProvider(p Provider) error {
@@ -203,10 +205,12 @@ func parseEPG(r io.Reader, channels []Channel, now time.Time) ([]Programme, erro
 			return nil, errors.New("XMLTV exceeds 500000 programme limit")
 		}
 		var p struct {
-			Channel string `xml:"channel,attr"`
-			Start   string `xml:"start,attr"`
-			Stop    string `xml:"stop,attr"`
-			Title   string `xml:"title"`
+			Channel     string `xml:"channel,attr"`
+			Start       string `xml:"start,attr"`
+			Stop        string `xml:"stop,attr"`
+			Title       string `xml:"title"`
+			Description string `xml:"desc"`
+			Date        string `xml:"date"`
 		}
 		if err = d.DecodeElement(&p, &start); err != nil {
 			return nil, errors.New("Invalid XMLTV programme")
@@ -223,7 +227,14 @@ func parseEPG(r io.Reader, channels []Channel, now time.Time) ([]Programme, erro
 			p.Title = p.Title[:4096]
 		}
 		for _, id := range mapping[p.Channel] {
-			out = append(out, Programme{id, p.Title, a, b})
+			year := ""
+			if len(p.Date) >= 4 {
+				year = p.Date[:4]
+			}
+			if len(p.Description) > 8000 {
+				p.Description = p.Description[:8000]
+			}
+			out = append(out, Programme{ChannelID: id, Title: p.Title, Start: a, End: b, Description: p.Description, Year: year})
 		}
 	}
 	if len(out) == 0 {

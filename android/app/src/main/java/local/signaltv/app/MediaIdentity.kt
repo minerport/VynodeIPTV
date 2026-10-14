@@ -29,7 +29,8 @@ import java.time.format.DateTimeFormatter
     }
 }
 
-@Composable fun ProgrammeFeature(channel:Channel?,programme:Programme?,playing:Channel?,modifier:Modifier=Modifier){
+@Composable fun ProgrammeFeature(channel:Channel?,programme:Programme?,playing:Channel?,modifier:Modifier=Modifier,profile:Profile?=null){
+    val metadata=rememberProgrammeMetadata(profile,programme)
     var now by remember{mutableLongStateOf(System.currentTimeMillis())}
     LaunchedEffect(Unit){while(true){delay(30000);now=System.currentTimeMillis()}}
     val live=programme!=null && programme.start<=now && programme.end>now
@@ -46,8 +47,15 @@ import java.time.format.DateTimeFormatter
             Text(time.format(Instant.ofEpochMilli(programme.start))+" – "+time.format(Instant.ofEpochMilli(programme.end))+"  ·  "+((programme.end-programme.start)/60000)+" min",color=TvPalette.Muted,fontSize=11.sp)
             if(live)LinearProgressIndicator(progress={((now-programme.start).toFloat()/(programme.end-programme.start)).coerceIn(0f,1f)},modifier=Modifier.widthIn(max=240.dp).fillMaxWidth().height(3.dp),color=TvPalette.Signal,trackColor=TvPalette.Line)
         }
-        Text(programme?.description?.takeIf{it.isNotBlank()}?:if(channel==null)"Explore your channels, favorite the ones you love, and settle in." else if(programme==null)"No EPG data for this channel." else channel.name,
-            color=TvPalette.Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=2,overflow=TextOverflow.Ellipsis)
+        Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
+            metadata?.optString("poster")?.takeIf{safeMetadataArtwork(it)}?.let{MetadataArtwork(it,Modifier.width(55.dp).height(82.dp))}
+            Column(Modifier.weight(1f)){
+                if(metadata!=null)Text(listOf(metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=TvPalette.Muted,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(metadata?.optString("overview")?.takeIf{it.isNotBlank()}?:programme?.description?.takeIf{it.isNotBlank()}?:if(channel==null)"Explore your channels, favorite the ones you love, and settle in." else if(programme==null)"No EPG data for this channel." else channel.name,
+                    color=TvPalette.Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=3,overflow=TextOverflow.Ellipsis)
+                if(metadata!=null)Text("TMDB · "+(if(metadata.optString("kind")=="tv")"Series information" else "Movie information")+metadataNames(metadata,"cast").takeIf{it.isNotBlank()}?.let{" · $it"}.orEmpty(),fontSize=10.sp,color=TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
+            }
+        }
         if(playing!=null)Text("WATCHING  ·  "+playing.name,color=TvPalette.Text.copy(alpha=.8f),fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
     }
 }

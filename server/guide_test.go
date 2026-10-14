@@ -57,7 +57,7 @@ func TestGuideWindowAndChannels(t *testing.T) {
 	a := testApp(t)
 	now := time.Now().UTC().Truncate(time.Hour)
 	a.mu.Lock()
-	a.guide = []Programme{{"one", "Included", now, now.Add(time.Hour)}, {"two", "Wrong channel", now, now.Add(time.Hour)}, {"one", "Too late", now.Add(4 * time.Hour), now.Add(5 * time.Hour)}}
+	a.guide = []Programme{{ChannelID: "one", Title: "Included", Start: now, End: now.Add(time.Hour)}, {ChannelID: "two", Title: "Wrong channel", Start: now, End: now.Add(time.Hour)}, {ChannelID: "one", Title: "Too late", Start: now.Add(4 * time.Hour), End: now.Add(5 * time.Hour)}}
 	a.mu.Unlock()
 	r := httptest.NewRequest(http.MethodGet, "/api/v1/guide", nil)
 	q := r.URL.Query()

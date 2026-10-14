@@ -18,6 +18,10 @@ try{
   const signedIn=await req('/api/v1/auth/login',{token:'',method:'POST',body:credentials});admin=signedIn.token;
  }
  await req('/api/v1/channels',{token:'',status:401});
+ const metadataSettings=await req('/api/v1/metadata/settings');assert.equal(metadataSettings.enabled,false);assert.equal(metadataSettings.configured,false);assert.equal('token' in metadataSettings,false);
+ assert.equal((await req('/api/v1/metadata/lookup',{method:'POST',body:{title:'Synthetic programme'}})).state,'disabled');
+ await req('/api/v1/metadata/settings',{token:'',status:401});
+ assert.equal((await fetch(base+'/tmdb-logo.svg')).status,200);
  const pair=await req('/api/v1/pairing/requests',{token:'',method:'POST',body:{name:'Automated smoke test'},status:201});device=pair.id;
  await req('/api/v1/pairing/approve',{method:'POST',body:{id:pair.id,code:pair.code}});
  const paired=await req('/api/v1/pairing/poll',{token:'',method:'POST',body:{id:pair.id,deviceSecret:pair.deviceSecret}});

@@ -32,6 +32,7 @@ type Pairing struct {
 	approved bool
 }
 type App struct {
+	tmdb               *tmdbService
 	recordings         string
 	recordingLeases    map[string]string
 	recordingPlaybacks map[string]*recordingPlayback
@@ -62,10 +63,11 @@ func newApp(s *Store, token, scratch, ffmpeg string, demo bool) *App {
 	a.recordingPlaybacks = map[string]*recordingPlayback{}
 	a.dvrWake = make(chan struct{}, 1)
 	a.loadLogin()
+	a.tmdb = newTMDB(s)
 	if demo {
 		a.channels = append(a.channels, Channel{ID: "demo:1", ProviderID: "demo", StreamID: "1", Name: "Signal Lab · live test", Category: "Diagnostics", EPGID: "demo", CategoryName: "Signal Lab"})
 		now := time.Now().Truncate(time.Hour)
-		a.guide = append(a.guide, Programme{"demo:1", "Live test pattern and audio tone", now, now.Add(24 * time.Hour)})
+		a.guide = append(a.guide, Programme{ChannelID: "demo:1", Title: "Live test pattern and audio tone", Start: now, End: now.Add(24 * time.Hour)})
 	}
 	providers := s.snapshot().Providers
 	a.restoreCachedCatalog(providers)
@@ -134,14 +136,15 @@ func (a *App) auth(admin bool, h http.HandlerFunc) http.HandlerFunc {
 func (a *App) routes() http.Handler {
 	m := http.NewServeMux()
 	a.loginRoutes(m)
+	a.tmdbRoutes(m)
 	a.recordingRoutes(m)
 	a.recordingPlaybackRoutes(m)
 	a.groupRoutes(m)
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]string{"status": "ok", "version": "0.11.1"})
+		send(w, 200, map[string]string{"status": "ok", "version": "0.12.0"})
 	})
 	m.HandleFunc("GET /api/v1/capabilities", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.11.1", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
+		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.12.0", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
 	}))
 	m.HandleFunc("GET /api/v1/channels", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()

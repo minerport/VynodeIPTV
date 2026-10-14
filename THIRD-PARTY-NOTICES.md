@@ -8,3 +8,9 @@ VynodeIPTV includes or depends on the following components. The root MIT license
 - **Android dependencies**, including AndroidX, Media3, Kotlin and Gradle, are retrieved by the Android build and retain their upstream license terms. The Gradle wrapper is included for reproducible build invocation; https://github.com/gradle/gradle/blob/master/LICENSE.
 
 No provider media, subscription, login, encryption key, administrator token or device signing key is distributed with this repository or container build context.
+
+## TMDB
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+Optional metadata and artwork remain subject to TMDB's terms, https://www.themoviedb.org/api-terms-of-use. TMDB branding is not covered by this repository's MIT license. The approved gradient logo in `server/web/tmdb-logo.svg` is the original logo mirrored at https://commons.wikimedia.org/wiki/File:Tmdb.new.logo.svg, which identifies its official TMDB source. `android/app/src/main/res/drawable/tmdb_logo.xml` reproduces the same path, colors, gradient and proportions as a native Android vector drawable. Attribution and branding requirements: https://www.themoviedb.org/about/logos-attribution.

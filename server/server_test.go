@@ -18,7 +18,9 @@ func testApp(t *testing.T) *App {
 	if e != nil {
 		t.Fatal(e)
 	}
-	return newApp(s, strings.Repeat("a", 64), t.TempDir(), "nonexistent-ffmpeg-test", true)
+	a := newApp(s, strings.Repeat("a", 64), t.TempDir(), "nonexistent-ffmpeg-test", true)
+	t.Cleanup(a.tmdb.close)
+	return a
 }
 func call(a *App, method, path, token, body string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))

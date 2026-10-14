@@ -304,6 +304,7 @@ func (a *App) reap(ctx context.Context) {
 	}
 }
 func (a *App) close() {
+	a.tmdb.close()
 	a.mu.Lock()
 	a.closing = true
 	preparations := []*recordingPlayback{}

@@ -68,7 +68,7 @@ class ServerRepository(override val profile: Profile): Repository {
         val result=channels.associate{it.id to mutableListOf<Programme>()}
         for(i in 0 until data.length()){
             val p=data.getJSONObject(i)
-            runCatching{Programme(p.getString("title"),java.time.Instant.parse(p.getString("start")).toEpochMilli(),java.time.Instant.parse(p.getString("end")).toEpochMilli())}.getOrNull()?.let{result[p.optString("channelId")]?.add(it)}
+            runCatching{Programme(p.getString("title"),java.time.Instant.parse(p.getString("start")).toEpochMilli(),java.time.Instant.parse(p.getString("end")).toEpochMilli(),p.optString("description"),p.optString("year"))}.getOrNull()?.let{result[p.optString("channelId")]?.add(it)}
         }
         return result
     }
@@ -76,7 +76,7 @@ class ServerRepository(override val profile: Profile): Repository {
     override suspend fun play(channel: Channel)=playback(JSONObject(api("/playback/sessions","POST",JSONObject().put("channelId",channel.id).put("profile",profile.streamProfile))))
     override suspend fun heartbeat(id: String)=playback(JSONObject(api("/playback/sessions/$id/heartbeat","POST",JSONObject())))
     override suspend fun stop(id: String) { api("/playback/sessions/$id","DELETE") }
-    override suspend fun programmes(channel: Channel): List<Programme> { val data=JSONObject(api("/guide?channelId="+Uri.encode(channel.id))).getJSONArray("programmes");return (0 until data.length()).mapNotNull { data.getJSONObject(it).let { p -> runCatching { Programme(p.getString("title"),java.time.Instant.parse(p.getString("start")).toEpochMilli(),java.time.Instant.parse(p.getString("end")).toEpochMilli()) }.getOrNull() } } }
+    override suspend fun programmes(channel: Channel): List<Programme> { val data=JSONObject(api("/guide?channelId="+Uri.encode(channel.id))).getJSONArray("programmes");return (0 until data.length()).mapNotNull { data.getJSONObject(it).let { p -> runCatching { Programme(p.getString("title"),java.time.Instant.parse(p.getString("start")).toEpochMilli(),java.time.Instant.parse(p.getString("end")).toEpochMilli(),p.optString("description"),p.optString("year")) }.getOrNull() } } }
 
 }
 class XtreamRepository(override val profile: Profile,context:android.content.Context): Repository {

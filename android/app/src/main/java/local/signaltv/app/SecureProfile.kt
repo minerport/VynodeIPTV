@@ -30,6 +30,8 @@ class SecureProfile(context: Context) {
     @Synchronized fun save(profile:Profile,replacing:Profile?=null){val all=updatedAccounts(accounts(),profile,replacing);require(all.size<=20){"Maximum 20 saved accounts"};write(all,profile.accountKey())}
     @Synchronized fun load():Profile? {val all=accounts();val active=prefs.getString("active",null);return all.find{it.accountKey()==active}}
     @Synchronized fun logout(){accounts();check(prefs.edit().remove("active").commit())}
+    @Synchronized fun tmdb():JSONObject = prefs.getString("tmdb",null)?.let{JSONObject(decrypt(it))}?:JSONObject()
+    @Synchronized fun saveTmdb(value:JSONObject){check(prefs.edit().putString("tmdb",encrypt(value.toString())).commit()){"Could not save TMDB connection"}}
     @Synchronized fun remove(profile:Profile){val active=prefs.getString("active",null);write(accounts().filter{it.accountKey()!=profile.accountKey()},active?.takeUnless{it==profile.accountKey()})}
     fun clear(){check(prefs.edit().clear().commit())}
 }

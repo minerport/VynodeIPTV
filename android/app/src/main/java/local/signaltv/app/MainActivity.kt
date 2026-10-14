@@ -39,6 +39,8 @@ import org.json.JSONObject
 class MainActivity: ComponentActivity() {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main)
     private lateinit var secure: SecureProfile
+    private var tmdbOpen by mutableStateOf(false)
+    private var metadataRevision by mutableIntStateOf(0)
     private var profile by mutableStateOf<Profile?>(null)
     private var channels by mutableStateOf<List<Channel>>(emptyList())
     private var status by mutableStateOf("Choose how to connect")
@@ -209,6 +211,7 @@ class MainActivity: ComponentActivity() {
         }})
     }
     @Composable private fun App(){
+        if(tmdbOpen)TmdbSettings(profile){tmdbOpen=false;metadataRevision++}
         LaunchedEffect(profile){val p=profile?:return@LaunchedEffect;val cache=CatalogCache(this@MainActivity,p);var stamp=cache.modified();while(true){delay(60000);if(stamp!=cache.modified()){val entries=withContext(Dispatchers.IO){cache.load()};if(profile==p&&entries.isNotEmpty())channels=entries;stamp=cache.modified()}}}
 
         if(managingAccounts){Surface(Modifier.fillMaxSize()){Column(Modifier.padding(24.dp)){Setup()}};return}
@@ -265,7 +268,7 @@ class MainActivity: ComponentActivity() {
                     }
                     val featuredChannel=guideState.focusedChannel.value?:c
                     val programme=guideState.focusedProgramme.value?:currentProgramme(guideState.cache[featuredChannel?.id]?.second.orEmpty(),System.currentTimeMillis())
-                    Column(Modifier.weight(1f)){ ProgrammeFeature(featuredChannel,programme,c,Modifier.fillMaxWidth());Row{TextButton(onClick={openRecordings(true)}){Text("● Record / schedule")};TextButton(onClick={openRecordings()}){Text("Recordings")}}}
+                    Column(Modifier.weight(1f)){ key(metadataRevision){ProgrammeFeature(featuredChannel,programme,c,Modifier.fillMaxWidth(),profile)};Row{TextButton(onClick={openRecordings(true)}){Text("● Record / schedule")};TextButton(onClick={openRecordings()}){Text("Recordings")}}}
                 }
             },play=::play) }
 
@@ -281,6 +284,7 @@ class MainActivity: ComponentActivity() {
             var dailyEpg by remember{mutableStateOf(refreshPrefs.epg)}
             AlertDialog(onDismissRequest={settings=false},title={Text("Connection settings")},text={Column(Modifier.heightIn(max=300.dp).verticalScroll(rememberScrollState())){
                 TextButton(onClick={settings=false;healthOpen=true}){Text("Playback health & performance")}
+                TextButton(onClick={settings=false;tmdbOpen=true}){Text("Metadata · TMDB")}
                 Row{Checkbox(dailyChannels,{dailyChannels=it});Text("Refresh channels daily",Modifier.padding(top=14.dp))}
                 Row{Checkbox(dailyEpg,{dailyEpg=it});Text("Refresh EPG daily",Modifier.padding(top=14.dp))}
                 Text("Runs when Android allows background work and a network is available.",style=MaterialTheme.typography.bodySmall)
@@ -317,6 +321,7 @@ class MainActivity: ComponentActivity() {
                 Text("Standalone works directly with your provider. Companion uses your saved server. Switch here at any time; each connection keeps its own favorites and groups.")
                 saved.forEach{p->Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(if(p.mode=="direct")"Standalone · ${p.username}" else "Companion · server");Text(p.base,style=MaterialTheme.typography.bodySmall)};TextButton(enabled=!busy,onClick={connect(p)}){Text(if(profile?.accountKey()==p.accountKey())"Reconnect" else "Use this")};TextButton(enabled=!busy,onClick={edit=p;form=true}){Text("Edit")};TextButton(enabled=!busy,onClick={remove=p}){Text("Delete")}}}
                 Button(enabled=!busy,onClick={edit=null;form=true}){Text("Add account")}
+                TextButton(onClick={tmdbOpen=true}){Text("Metadata · TMDB")}
                 if(profile!=null)TextButton(onClick={managingAccounts=false}){Text("Back to guide")}
                 Text(status)
             }
