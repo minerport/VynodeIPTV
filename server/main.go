@@ -49,20 +49,32 @@ func main() {
 		log.Fatal("Cannot open encrypted state: ", err)
 	}
 	app := newApp(store, string(token), scratch, env("FFMPEG_PATH", "ffmpeg"), os.Getenv("IPTV_DEMO") == "1")
+	app.recordings = env("IPTV_RECORDINGS", "./recordings")
+	if err := os.MkdirAll(app.recordings, 0700); err != nil {
+		log.Fatal("Recording storage unavailable: ", err)
+	}
 	srv := &http.Server{Addr: env("IPTV_LISTEN", ":8080"), Handler: app.routes(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	dvrDone := make(chan struct{})
+	go func() { defer close(dvrDone); app.runDVR(ctx) }()
 	go app.reap(ctx)
 	go app.scheduledRefresh(ctx)
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(shutdown)
 		app.close()
+		<-dvrDone
 	}()
 	log.Printf("VynodeIPTV listening on %s; create or sign in to your administrator account in the WebUI", srv.Addr)
 	if err = srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
+	}
+	if ctx.Err() != nil {
+		<-shutdownDone
 	}
 }

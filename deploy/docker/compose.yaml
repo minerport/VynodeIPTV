@@ -1,6 +1,6 @@
 services:
   iptv:
-    image: iptv-server:0.10.1
+    image: iptv-server:0.11.0
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
@@ -12,6 +12,7 @@ services:
     volumes:
       - config:/config
       - transcode:/transcode
+      - recordings:/recordings
     restart: unless-stopped
     stop_grace_period: 15s
     mem_limit: 1g
@@ -26,3 +27,5 @@ volumes:
     name: signal-iptv-config
   transcode:
     name: signal-iptv-transcode
+  recordings:
+    name: signal-iptv-recordings

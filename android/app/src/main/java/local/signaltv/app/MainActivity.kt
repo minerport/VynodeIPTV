@@ -70,8 +70,15 @@ class MainActivity: ComponentActivity() {
         super.onCreate(savedInstanceState);secure=SecureProfile(this)
         restoreConnection()
         RefreshJobs.schedule(this)
+        RecordingStore.schedule(this)
         scope.launch{withContext(Dispatchers.IO){runCatching{RefreshJobs.run(this@MainActivity)}}}
         setContent{MaterialTheme(colorScheme=darkColorScheme(primary=TvPalette.Accent,onPrimary=TvPalette.OnAccent,secondary=TvPalette.Accent,onSecondary=TvPalette.OnAccent,background=TvPalette.Background,onBackground=TvPalette.Text,surface=TvPalette.Surface,onSurface=TvPalette.Text,surfaceVariant=TvPalette.Track,onSurfaceVariant=TvPalette.Muted,surfaceTint=TvPalette.Accent,primaryContainer=TvPalette.Live,onPrimaryContainer=TvPalette.Text,secondaryContainer=TvPalette.Surface,onSecondaryContainer=TvPalette.Text,tertiary=TvPalette.Accent,outline=TvPalette.Muted)){Surface(Modifier.fillMaxSize()){App()}}}
+    }
+    private fun openRecordings(schedule:Boolean=false){
+        val p=profile?:return
+        val channel=guideState.focusedChannel.value?:current
+        val programme=guideState.focusedProgramme.value?:currentProgramme(guideState.cache[channel?.id]?.second.orEmpty(),System.currentTimeMillis())
+        startActivity(android.content.Intent(this,RecordingActivity::class.java).putExtra("account",p.accountKey()).putExtra("schedule",schedule).putExtra("channel",channel?.id).putExtra("title",programme?.title?:channel?.name).putExtra("start",programme?.start?:System.currentTimeMillis()).putExtra("end",programme?.end?:System.currentTimeMillis()+3600000))
     }
     private fun restoreConnection(){try{unlockError=false;secure.load()?.let{profile=it;connect(it)}}catch(e:Exception){unlockError=true;status=e.message?:"Unable to unlock connection"}}
     private fun connect(p: Profile,replacing:Profile?=null){
@@ -258,7 +265,7 @@ class MainActivity: ComponentActivity() {
                     }
                     val featuredChannel=guideState.focusedChannel.value?:c
                     val programme=guideState.focusedProgramme.value?:currentProgramme(guideState.cache[featuredChannel?.id]?.second.orEmpty(),System.currentTimeMillis())
-                    ProgrammeFeature(featuredChannel,programme,c,Modifier.weight(1f))
+                    Column(Modifier.weight(1f)){ ProgrammeFeature(featuredChannel,programme,c,Modifier.fillMaxWidth());Row{TextButton(onClick={openRecordings(true)}){Text("● Record / schedule")};TextButton(onClick={openRecordings()}){Text("Recordings")}}}
                 }
             },play=::play) }
 

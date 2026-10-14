@@ -72,3 +72,5 @@ header{padding-left:max(3vw,env(safe-area-inset-left));padding-right:max(3vw,env
 main{padding-left:max(3vw,env(safe-area-inset-left));padding-right:max(3vw,env(safe-area-inset-right))}
 
 .refresh-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.refresh-actions button{min-width:170px}
+
+.recording-dialog{width:min(850px,94vw);max-height:90dvh;overflow:auto}.recording-dialog input,.recording-dialog select{width:100%}.recording-dialog .panel{margin-top:1rem}.recording-dialog button{margin:.3rem}

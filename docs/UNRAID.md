@@ -1,6 +1,6 @@
 # Install VynodeIPTV on Unraid
 
-Target: x86-64 Unraid with Docker enabled. Image: `ghcr.io/minerport/vynodeiptv:latest` (current numbered version: `0.10.1`).
+Target: x86-64 Unraid with Docker enabled. Image: `ghcr.io/minerport/vynodeiptv:latest` (current numbered version: `0.11.0`).
 
 ## 1. Prepare persistent storage
 
@@ -9,6 +9,7 @@ In the Unraid terminal, create dedicated folders. Replace `/mnt/cache` with your
 ```sh
 install -d -m 700 -o 10001 -g 10001 /mnt/user/appdata/vynodeiptv
 install -d -m 700 -o 10001 -g 10001 /mnt/cache/appdata/vynodeiptv-transcode
+install -d -m 700 -o 10001 -g 10001 /mnt/user/recordings/vynodeiptv
 ```
 
 For migration, back up the existing configuration and key together, and point `/config` to that existing directory instead. Starting with an empty configuration opens account setup and requires re-entering providers and pairing devices.
@@ -21,7 +22,7 @@ curl -fSL https://raw.githubusercontent.com/minerport/VynodeIPTV/main/deploy/unr
   -o /boot/config/plugins/dockerMan/templates-user/my-VynodeIPTV.xml
 ```
 
-Open **Docker → Add Container**, select **VynodeIPTV** from the user templates, check both paths, and apply. Keep bridge networking, port 8580 mapped to container port 8080, privileged mode off, and the supplied security options. Choose another host port if 8580 is occupied. The template is not yet listed in Community Applications.
+Open **Docker → Add Container**, select **VynodeIPTV** from the user templates, check all three paths, and apply. Keep bridge networking, port 8580 mapped to container port 8080, privileged mode off, and the supplied security options. Choose another host port if 8580 is occupied. The template is not yet listed in Community Applications.
 
 ## 3. Sign in and pair Android
 
@@ -95,3 +96,9 @@ Old releases did not save server catalog snapshots. If an older installation has
 Standalone Android restores its cached lineup when a saved connection is unavailable and retries while that connection remains selected, without returning to login setup. Both direct and companion accounts remain selectable.
 
 Automatic HTTP fallback is separate from Allow HTTP streams, off by default, and available in provider editing and standalone Android connection settings. Enable Allow HTTP first, then opt into fallback. It sends provider credentials and media without encryption if the initial HTTPS connection fails. The app does not disable certificate validation. It retries the same host over HTTP (standard port 443 becomes 80; custom ports remain unchanged), never downgrades in response to an HTTP authentication/status rejection, and does not change the saved provider identity. The provider must offer a working HTTP endpoint. Companion-server administrator/pairing requests do not use Android's provider fallback.
+
+## Recording upgrade (0.11.0)
+
+Before updating an existing container, create `/mnt/user/recordings/vynodeiptv` writable by UID/GID 10001 using the command above. In **Docker → VynodeIPTV → Edit → Add another Path**, map that host folder to container path **`/recordings`**, read/write. Apply with repository `ghcr.io/minerport/vynodeiptv:0.11.0` (pinned) or `:latest`. Preserve the existing `/config` and `/transcode` mappings.
+
+Open **Recordings** in the dashboard to schedule and play recordings. The updated APK supports both server recordings and independent local recording on Android. See [built-in recording and current limitations](RECORDING.md). Do not delete the recordings host folder when reinstalling or rolling back.

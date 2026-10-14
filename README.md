@@ -1,6 +1,6 @@
 # VynodeIPTV
 
-Self-hosted IPTV server, browser player, and Android TV companion. **Server preview 0.10.1 · Android preview 0.10.1.**
+Self-hosted IPTV server, browser player, and Android TV companion. **Server preview 0.11.0 · Android preview 0.11.0.**
 
 The server accepts your Xtream connection, imports channels/groups and EPG, and supplies authenticated HLS to each player. Android can use the server as its streaming middleware or connect directly in standalone mode. No subscriptions, channels or provider credentials are included.
 
@@ -8,9 +8,9 @@ The server accepts your Xtream connection, imports channels/groups and EPG, and 
 
 Image: **`ghcr.io/minerport/vynodeiptv:latest`** (`linux/amd64`).
 
-Follow the [Unraid installation guide](docs/UNRAID.md), then open `http://YOUR_UNRAID_IP:8580`. The [Unraid template](deploy/unraid/iptv-server.xml) includes the port, persistent configuration and scratch mappings. This is a manually installed template, not a Community Applications listing.
+Follow the [Unraid installation guide](docs/UNRAID.md), then open `http://YOUR_UNRAID_IP:8580`. The [Unraid template](deploy/unraid/iptv-server.xml) includes the port, persistent configuration, scratch and recordings mappings. This is a manually installed template, not a Community Applications listing.
 
-The container runs as **UID/GID 10001**, without privileged mode or the Docker socket. Its config and scratch directories must be writable by that user. Do not set PUID/PGID variables: this image does not implement them.
+The container runs as **UID/GID 10001**, without privileged mode or the Docker socket. Its config, scratch and recordings directories must be writable by that user. Do not set PUID/PGID variables: this image does not implement them.
 
 ## Run with Docker
 
@@ -21,14 +21,19 @@ docker run -d --name VynodeIPTV \
   -p 127.0.0.1:8580:8080 \
   -v vynodeiptv-config:/config \
   -v vynodeiptv-transcode:/transcode \
+  -v vynodeiptv-recordings:/recordings \
   ghcr.io/minerport/vynodeiptv:latest
 ```
 
 Create your administrator username and password in the dashboard. Existing installations require their previous administrator key once (or reuse the already signed-in browser tab) to authorize the upgrade. After setup the old key no longer grants dashboard or media access. Add a provider and retain its actual permitted connection limit. The command above is localhost-only; use the Unraid template for the intended LAN service. Internet exposure is not supported by this preview.
 
-Configuration, encryption key and password hash live in `/config`. Back up that directory together. `/transcode` is disposable media scratch. Removing either a container or image does not require deleting its persistent volumes.
+Configuration, encryption key and password hash live in `/config`. Back up that directory together. `/transcode` is disposable media scratch. `/recordings` is persistent DVR media. Removing either a container or image does not require deleting its persistent volumes.
 
 The browser dashboard adapts to phones with a group drawer, compact player controls, a one-hour guide window and full-width settings forms. Desktop retains the existing TV layout.
+
+## Built-in DVR
+
+See the [recording guide](docs/RECORDING.md). Android can record locally without a server or control server recordings in companion mode. **Existing Unraid installations must add a persistent `/recordings` mapping before using DVR.** Standalone recording currently requires the provider’s MPEG-TS endpoint.
 
 ## Features
 
@@ -53,17 +58,17 @@ docker run --rm -v "$PWD/server:/src" -w /src golang:1.27.2-bookworm sh -c 'go t
 docker build -f deploy/docker/Dockerfile -t vynodeiptv:local .
 ```
 
-The GitHub workflow tests the Go server and browser behavior, starts an isolated synthetic stream, verifies authentication and forced-worker recovery, and only then publishes version tags to GHCR. `latest` tracks the most recently published version tag without a prerelease suffix. The current numbered image is `ghcr.io/minerport/vynodeiptv:0.10.1`; pin it for controlled upgrades. The application remains preview software.
+The GitHub workflow tests the Go server and browser behavior, starts an isolated synthetic stream, verifies authentication and forced-worker recovery, and only then publishes version tags to GHCR. `latest` tracks the most recently published version tag without a prerelease suffix. The current numbered image is `ghcr.io/minerport/vynodeiptv:0.11.0`; pin it for controlled upgrades. The application remains preview software.
 
 For the existing local development Compose setup, run `scripts/start-local.ps1 -Build`. It uses the existing Signal TV local volumes and does not switch the running development installation to GHCR automatically.
 
 Build Android with Java 17 and Android SDK 36: `android/gradlew -p android :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`. Debug APKs and signing keys are not committed. Provider credentials, runtime state and private test data are excluded from Git and the container build context.
 
-See [release validation](docs/VALIDATION-0.10.1.md), [architecture roadmap](IPTV-ARCHITECTURE-PLAN.md), [development history](docs/DEVELOPMENT-HISTORY.md) and [third-party notices](THIRD-PARTY-NOTICES.md).
+See [release validation](docs/VALIDATION-0.11.0.md), [architecture roadmap](IPTV-ARCHITECTURE-PLAN.md), [development history](docs/DEVELOPMENT-HISTORY.md) and [third-party notices](THIRD-PARTY-NOTICES.md).
 
 ## Current limits
 
-Recovery may briefly rebuffer; unavailable upstream media cannot be reconstructed. Segment/clock monitoring cannot identify an encoded still image or silence. Hardware transcoding, gapless timeline stitching, shared ingest, recording, catch-up and server-restart session recreation remain future work. Unraid compatibility is packaged and container-tested; installation on physical Unraid and Shield hardware still requires acceptance testing.
+Recovery may briefly rebuffer; unavailable upstream media cannot be reconstructed. Segment/clock monitoring cannot identify an encoded still image or silence. Hardware transcoding, gapless timeline stitching, shared ingest, series recording rules, catch-up and server-restart session recreation remain future work. Unraid compatibility is packaged and container-tested; installation on physical Unraid and Shield hardware still requires acceptance testing.
 
 
 ## Community Apps submission and licensing

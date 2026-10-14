@@ -10,8 +10,8 @@
   <ExtraSearchTerms>iptv xtream epg television android shield video wall</ExtraSearchTerms>
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
-  <Date>2026-10-12</Date>
-  <Changes>0.10.1: Editable provider addresses and usernames; encrypted restart cache; automatic provider reconnect; optional HTTP fallback off by default.</Changes>
+  <Date>2026-10-14</Date>
+  <Changes>0.11.0: Built-in DVR schedules, recording library, bounded recovery and partial recording retention. Existing containers must add persistent /recordings storage writable by UID/GID 10001.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>
@@ -25,4 +25,5 @@
   <Config Name="Scratch" Target="/transcode" Default="/mnt/cache/appdata/vynodeiptv-transcode" Mode="rw" Description="Use an existing SSD pool path, writable by UID 10001" Type="Path" Display="always" Required="true" Mask="false">/mnt/cache/appdata/vynodeiptv-transcode</Config>
   <Config Name="Demo channel" Target="IPTV_DEMO" Default="0" Mode="" Description="Set 1 to enable synthetic signal testing" Type="Variable" Display="always" Required="false" Mask="false">0</Config>
   <Config Name="Timezone" Target="TZ" Default="America/New_York" Mode="" Description="Timezone" Type="Variable" Display="always" Required="false" Mask="false">America/New_York</Config>
+  <Config Name="Recordings" Target="/recordings" Default="/mnt/user/recordings/vynodeiptv" Mode="rw" Description="Persistent DVR storage; writable by UID/GID 10001. Never use the transcode directory." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/recordings/vynodeiptv</Config>
 </Container>

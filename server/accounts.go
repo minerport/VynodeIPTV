@@ -14,6 +14,11 @@ func providerIdentity(p Provider) string {
 func (a *App) providerBusy(id string) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	for _, provider := range a.recordingLeases {
+		if provider == id {
+			return true
+		}
+	}
 	for _, s := range a.sessions {
 		if s.provider == id {
 			return true

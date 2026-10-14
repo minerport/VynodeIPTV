@@ -32,6 +32,9 @@ type Pairing struct {
 	approved bool
 }
 type App struct {
+	recordings      string
+	recordingLeases map[string]string
+	dvrWake         chan struct{}
 	imports         map[string]importStatus
 	catalogMu       sync.Mutex
 	accountMu       sync.RWMutex
@@ -52,6 +55,9 @@ type App struct {
 
 func newApp(s *Store, token, scratch, ffmpeg string, demo bool) *App {
 	a := &App{store: s, admin: token, scratch: scratch, ffmpeg: ffmpeg, demo: demo, sessions: map[string]*Session{}, pairings: map[string]*Pairing{}, lastPair: map[string]time.Time{}, channels: []Channel{}, guide: []Programme{}, guideStatus: "Not imported"}
+	a.recordings = filepath.Join(s.dir, "recordings")
+	a.recordingLeases = map[string]string{}
+	a.dvrWake = make(chan struct{}, 1)
 	a.loadLogin()
 	if demo {
 		a.channels = append(a.channels, Channel{ID: "demo:1", ProviderID: "demo", StreamID: "1", Name: "Signal Lab · live test", Category: "Diagnostics", EPGID: "demo", CategoryName: "Signal Lab"})
@@ -125,12 +131,13 @@ func (a *App) auth(admin bool, h http.HandlerFunc) http.HandlerFunc {
 func (a *App) routes() http.Handler {
 	m := http.NewServeMux()
 	a.loginRoutes(m)
+	a.recordingRoutes(m)
 	a.groupRoutes(m)
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]string{"status": "ok", "version": "0.9.3"})
+		send(w, 200, map[string]string{"status": "ok", "version": "0.11.0"})
 	})
 	m.HandleFunc("GET /api/v1/capabilities", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.9.3", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
+		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.11.0", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
 	}))
 	m.HandleFunc("GET /api/v1/channels", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()

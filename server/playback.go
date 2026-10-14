@@ -68,10 +68,15 @@ func (s *Session) set(state, reason string) {
 func (a *App) startSession(owner string, c Channel, p Provider, profiles ...string) (*Session, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.sessions) >= 8 {
+	if len(a.sessions)+len(a.recordingLeases) >= 8 {
 		return nil, fmt.Errorf("Server session limit reached")
 	}
 	count := 0
+	for _, provider := range a.recordingLeases {
+		if provider == p.ID {
+			count++
+		}
+	}
 	for _, s := range a.sessions {
 		if s.provider == p.ID {
 			count++

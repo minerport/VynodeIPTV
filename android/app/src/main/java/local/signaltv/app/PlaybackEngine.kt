@@ -55,6 +55,7 @@ class PlaybackEngine(private val context: Context, private val repo: Repository,
     private var retry: Job?=null
     private val budget=RecoveryBudget()
     private var closed=false
+    private val recordingLease="live-"+java.util.UUID.randomUUID().toString()
     private var previousCondition:StreamCondition?=null
     private fun event(message:String){events.add((SystemClock.elapsedRealtime()-born)/1000,message)}
     fun surfaceAttached(){visibleSurfaces++;surfaceChangedAt=SystemClock.elapsedRealtime()}
@@ -95,6 +96,7 @@ class PlaybackEngine(private val context: Context, private val repo: Repository,
     }
     fun start(channel: Channel) { scope.launch {
         try {
+            if(repo.profile.mode=="direct")check(ProviderSlots.acquire(recordingLease,repo.profile.accountKey(),repo.connectionLimit)){"Provider connection limit reached"}
             report("Opening ${channel.name}")
             val opened=withContext(NonCancellable){repo.play(channel)}
             if(!isActive||closed){opened.sessionId?.let{withContext(NonCancellable){runCatching{repo.stop(it)}}};return@launch}
@@ -171,6 +173,7 @@ class PlaybackEngine(private val context: Context, private val repo: Repository,
         closed=true;val id=playback?.sessionId;scope.cancel();player.release()
         return CoroutineScope(Dispatchers.IO).launch{
             scope.coroutineContext[Job]?.join()
+            ProviderSlots.release(recordingLease)
             if(id!=null)runCatching{repo.stop(id)}
         }.also{closing=it}
     }

@@ -6,8 +6,8 @@ const base=process.env.IPTV_TEST_URL||'http://127.0.0.1:8580';
 let admin=process.env.IPTV_TEST_ADMIN_SESSION||'';
 if(process.env.IPTV_TEST_ACCOUNT_SETUP!=='1'&&!admin)admin=execFileSync('docker',['exec',process.env.IPTV_TEST_CONTAINER||'signal-iptv-iptv-1','cat','/config/admin.token'],{encoding:'utf8'}).trim();
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-async function req(path,{token=admin,method='GET',body,status=200}={}){const r=await fetch(base+path,{method,headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});assert.equal(r.status,status,`${method} ${path} status`);return r.json()}
-let device='',session='';
+async function req(path,{token=admin,method='GET',body,status=200}={}){if(process.env.IPTV_TEST_TRACE==='1')console.log(method,path);const r=await fetch(base+path,{signal:AbortSignal.timeout(15000),method,headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});assert.equal(r.status,status,`${method} ${path} status`);return r.json()}
+let device='',session='',recording='';
 try{
  if(process.env.IPTV_TEST_ACCOUNT_SETUP==='1'){
   const credentials={username:'synthetic-admin',password:randomBytes(24).toString('hex')};
@@ -30,6 +30,18 @@ try{
  const unauthorized=await fetch(base+first.mediaUrl);assert.equal(unauthorized.status,401);
  await req(`/api/v1/playback/sessions/${session}/interrupt`,{method:'POST',body:{}});const recovered=await playable(first.generation+1);
  assert.ok(recovered.health.restarts>=1);assert.ok(recovered.health.events.some(e=>e.state==='recovering'));
- const result={passed:true,checks:['unauthenticated API denied','pairing approved with device secret','device denied administration','authenticated HLS generated','MPEG-TS segment received','unauthenticated media denied','worker interruption recovered','segment freshness and recovery history reported'],initialGeneration:first.generation,recoveredGeneration:recovered.generation,segmentBytes:bytes.length};
+ const scheduled=await req('/api/v1/recordings',{method:'POST',body:{channelId:'demo:1',title:'Synthetic DVR acceptance',end:new Date(Date.now()+14000).toISOString(),beforeMinutes:0,afterMinutes:0},status:201});recording=scheduled.id;
+ await req(`/api/v1/recordings/${recording}/cancel`,{token:paired.token,method:'POST',body:{},status:404});
+ let completed;
+ for(let i=0;i<40;i++){await sleep(1000);const jobs=await req('/api/v1/recordings');const j=jobs.find(j=>j.id===recording);if(j.status==='failed'||j.status==='partial')throw Error('Synthetic recording '+j.status+': '+j.reason+' (gaps '+j.gaps+')');if(j.status==='completed'){completed=j;break}}
+ assert.ok(completed,'Recording did not complete');assert.ok(completed.bytes>188);
+ const recordedPath=`/recorded/${recording}/recording.m3u8`;
+ assert.equal((await fetch(base+recordedPath)).status,401);
+ const recorded=await fetch(base+recordedPath,{headers:{Authorization:'Bearer '+admin}});assert.equal(recorded.status,200);const manifest=await recorded.text();assert.match(manifest,/#EXT-X-ENDLIST/);
+ const recordedSegment=manifest.split('\n').find(l=>l.startsWith('part-'));assert.ok(recordedSegment);
+ const sample=await fetch(new URL(recordedSegment,base+recordedPath),{headers:{Authorization:'Bearer '+admin}});assert.equal(sample.status,200);assert.equal(new Uint8Array(await sample.arrayBuffer())[0],0x47);
+ await req(`/api/v1/recordings/${recording}/resume`,{method:'PUT',body:{seconds:3}});
+ assert.equal((await req('/api/v1/recordings')).find(j=>j.id===recording).resume,3);
+ const result={passed:true,checks:['unauthenticated API denied','pairing approved with device secret','device denied administration','authenticated HLS generated','MPEG-TS segment received','unauthenticated media denied','worker interruption recovered','segment freshness and recovery history reported','scheduled DVR completed independently of live playback','recorded MPEG-TS retrieved with authentication','recording ownership enforced','recording resume persisted'],initialGeneration:first.generation,recoveredGeneration:recovered.generation,segmentBytes:bytes.length};
  await writeFile(new URL('../.local/verification/server-result.json',import.meta.url),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
-}finally{if(session)await req('/api/v1/playback/sessions/'+session,{method:'DELETE'}).catch(()=>{});if(device)await req('/api/v1/devices/'+device,{method:'DELETE'}).catch(()=>{})}
+}finally{if(recording){await req(`/api/v1/recordings/${recording}/cancel`,{method:"POST",body:{}}).catch(()=>{});await req(`/api/v1/recordings/${recording}`,{method:"DELETE"}).catch(()=>{})}if(session)await req('/api/v1/playback/sessions/'+session,{method:'DELETE'}).catch(()=>{});if(device)await req('/api/v1/devices/'+device,{method:'DELETE'}).catch(()=>{})}

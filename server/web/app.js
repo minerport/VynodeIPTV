@@ -1,3 +1,4 @@
+import {recordingUI} from './recordings.js';
 import {VideoWall} from './wall.js';
 import {providerGroups,inGroup,clipProgramme,guideCells,orderedGroups,virtualRange} from './guide.js';
 const $=id=>document.getElementById(id),phoneLayout=matchMedia('(max-width:700px)');
@@ -40,7 +41,7 @@ function renderGuide(force=true){
   row.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight'].includes(event.key)&&!event.target.classList.contains('favorite')){event.preventDefault();shiftGuide(event.key==='ArrowRight'?1800000:-1800000);[...target.querySelectorAll('[data-focus-key]')].find(e=>e.dataset.focusKey==='channel:'+c.id)?.focus({preventScroll:true});return;}if(!['ArrowDown','ArrowUp'].includes(event.key))return;event.preventDefault();const index=list.findIndex(item=>item.id===c.id)+(event.key==='ArrowDown'?1:-1);if(index<0||index>=list.length)return;const y=index*62;if(y<viewport.scrollTop)viewport.scrollTop=y;else if(y+62>viewport.scrollTop+viewport.clientHeight)viewport.scrollTop=y+62-viewport.clientHeight;renderGuide();const key=(event.target.classList.contains('favorite')?'favorite:':'channel:')+list[index].id;[...target.querySelectorAll('[data-focus-key]')].find(e=>e.dataset.focusKey===key)?.focus({preventScroll:true});scheduleGuide()});
   const track=el('div',null,'programme-track');const cached=guideCache.get(c.id);
   for(const cell of guideCells(cached?.programmes||[],start,duration)){
-   const p=cell.programme,b=p?button(p.title?.trim()||'Untitled programme',()=>tune(c),'programme'+(Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now()?' live':'')):el('div',cached?'No EPG data':'Loading EPG…','programme epg-gap');
+   const p=cell.programme,b=p?button(p.title?.trim()||'Untitled programme',()=>{dvr.programme(c,p,()=>tune(c))},'programme'+(Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now()?' live':'')):el('div',cached?'No EPG data':'Loading EPG…','programme epg-gap');
    b.style.left=(cell.start-start)/duration*100+'%';b.style.width=(cell.end-cell.start)/duration*100+'%';
    if(p){b.dataset.focusKey='programme:'+c.id+':'+p.start;b.title=(p.title?.trim()||'Untitled programme')+' · '+time(p.start)+'–'+time(p.end);b.append(el('small',time(p.start)+'–'+time(p.end)))}else b.title=cached?'No EPG data for this time':'Loading EPG';track.append(b);
   }
@@ -53,7 +54,7 @@ async function loadGuide(){
  const revision=++guideRevision,windowStart=Math.floor(start/21600000)*21600000,ids=visible().filter(c=>{const cached=guideCache.get(c.id);return !cached||cached.start!==windowStart||Date.now()-cached.fetched>60000}).map(c=>c.id);if(!ids.length)return
  $('epg-message').textContent='Loading guide…';try{const data=await api('/guide?'+new URLSearchParams({channelIds:ids.join(','),from:new Date(windowStart).toISOString(),to:new Date(windowStart+43200000).toISOString()}));if(windowStart!==Math.floor(start/21600000)*21600000||revision!==guideRevision)return;
  const byChannel=new Map(ids.map(id=>[id,[]]));for(const p of data.programmes)byChannel.get(p.channelId)?.push(p);for(const id of ids){guideCache.set(id,{start:windowStart,fetched:Date.now(),programmes:byChannel.get(id)})}while(guideCache.size>300)guideCache.delete(guideCache.keys().next().value);
- $('epg-message').textContent='Local times · select a programme to watch live';$('guide-status').textContent=data.status;renderGuide()}catch(e){if(revision===guideRevision){for(const id of ids)guideCache.set(id,{start:windowStart,fetched:Date.now(),programmes:guideCache.get(id)?.programmes||[]});$('epg-message').textContent='EPG unavailable · retrying automatically';renderGuide()}}
+ $('epg-message').textContent='Local times · select a channel to watch · select a programme to record';$('guide-status').textContent=data.status;renderGuide()}catch(e){if(revision===guideRevision){for(const id of ids)guideCache.set(id,{start:windowStart,fetched:Date.now(),programmes:guideCache.get(id)?.programmes||[]});$('epg-message').textContent='EPG unavailable · retrying automatically';renderGuide()}}
 }
 function scheduleGuide(){clearTimeout(scrollTimer);scrollTimer=setTimeout(()=>loadGuide(),140)}
 async function loadCatalog(){[channels,customGroups,preferences]=await Promise.all([api('/channels'),api('/groups'),api('/guide/preferences')]);$('channel-count').textContent=channels.length;renderGroups();renderGuide();await loadGuide()}
@@ -140,3 +141,7 @@ $('save-refresh').onclick=async()=>{try{await api('/refresh/settings','PUT',{cha
 $('settings-tab').addEventListener('click',()=>loadRefreshSettings().catch(e=>message(e.message,true)));
 
 async function refreshLineup(){const next=await api('/channels');if(JSON.stringify(next)!==JSON.stringify(channels)){channels=next;$('channel-count').textContent=channels.length;renderGroups();renderGuide()}await loadGuide()}
+
+const dvr=recordingUI({api,channels:()=>channels,token:()=>token,message,onPlay:()=>wall.tiles.forEach(t=>t.video.muted=true),onStop:()=>{if(wall.selected)wall.select(wall.selected)}});
+$('recordings-tab').onclick=()=>dvr.library().catch(e=>message(e.message,true));
+$('record-now').onclick=()=>{const c=channels.find(c=>c.id===active?.channelId);dvr.schedule(c,c?(guideCache.get(c.id)?.programmes||[]).find(p=>Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now()):null)};
