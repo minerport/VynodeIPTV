@@ -23,9 +23,9 @@ import java.time.format.DateTimeFormatter
     Row(Modifier.fillMaxWidth().padding(bottom=4.dp),verticalAlignment=Alignment.CenterVertically){
         Text("V",color=TvPalette.Signal,fontSize=22.sp,fontWeight=FontWeight.Black)
         Text("VYNODE",Modifier.padding(start=10.dp),fontSize=14.sp,letterSpacing=3.sp,fontWeight=FontWeight.Bold)
-        Text("LIVE TV",Modifier.padding(start=18.dp),color=TvPalette.Muted,fontSize=10.sp,letterSpacing=2.sp)
+        Text("LIVE TV",Modifier.padding(start=18.dp),color=TvPalette.Muted,fontSize=10.sp,lineHeight=12.sp,letterSpacing=2.sp)
         Spacer(Modifier.weight(1f))
-        Text(DateTimeFormatter.ofPattern("EEE, MMM d  •  h:mm a").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(now)),color=TvPalette.Muted,fontSize=11.sp)
+        Text(DateTimeFormatter.ofPattern("EEE, MMM d  •  h:mm a").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(now)),color=TvPalette.Muted,fontSize=11.sp,lineHeight=14.sp)
     }
 }
 
@@ -34,28 +34,31 @@ import java.time.format.DateTimeFormatter
     var now by remember{mutableLongStateOf(System.currentTimeMillis())}
     LaunchedEffect(Unit){while(true){delay(30000);now=System.currentTimeMillis()}}
     val live=programme!=null && programme.start<=now && programme.end>now
-    Column(modifier.padding(vertical=4.dp),verticalArrangement=Arrangement.spacedBy(if(compact)2.dp else 6.dp)){
+    Row(modifier,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+        if(compact)metadataArtwork(metadata)?.let{MetadataArtwork(it,Modifier.width(72.dp).height(108.dp).padding(top=4.dp))}
+        Column(Modifier.weight(1f).padding(vertical=4.dp),verticalArrangement=Arrangement.spacedBy(if(compact)2.dp else 6.dp)){
         Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
             Text(if(live)"● LIVE" else if(programme==null)"DISCOVER" else if(programme.end<=now)"EARLIER" else "UP NEXT",
                 Modifier.background(TvPalette.Signal.copy(alpha=.12f),RoundedCornerShape(4.dp)).padding(horizontal=8.dp,vertical=4.dp),
-                color=TvPalette.Signal,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
-            Text(channel?.groupName?:"YOUR TV. YOUR WAY.",color=TvPalette.Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                color=TvPalette.Signal,fontSize=10.sp,lineHeight=12.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
+            Text(channel?.groupName?:"YOUR TV. YOUR WAY.",color=TvPalette.Muted,fontSize=10.sp,lineHeight=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
         }
         Text(programme?.title?:channel?.name?:"Find your next great watch.",fontSize=if(compact)20.sp else 26.sp,lineHeight=if(compact)23.sp else 29.sp,fontWeight=FontWeight.Bold,maxLines=if(compact)1 else 2,overflow=TextOverflow.Ellipsis)
         if(programme!=null){
             val time=DateTimeFormatter.ofPattern("h:mm a").withZone(ZoneId.systemDefault())
-            Text(time.format(Instant.ofEpochMilli(programme.start))+" – "+time.format(Instant.ofEpochMilli(programme.end))+"  ·  "+((programme.end-programme.start)/60000)+" min",color=TvPalette.Muted,fontSize=11.sp)
+            Text(time.format(Instant.ofEpochMilli(programme.start))+" – "+time.format(Instant.ofEpochMilli(programme.end))+"  ·  "+((programme.end-programme.start)/60000)+" min",color=TvPalette.Muted,fontSize=11.sp,lineHeight=14.sp)
             if(live)LinearProgressIndicator(progress={((now-programme.start).toFloat()/(programme.end-programme.start)).coerceIn(0f,1f)},modifier=Modifier.widthIn(max=240.dp).fillMaxWidth().height(3.dp),color=TvPalette.Signal,trackColor=TvPalette.Line)
         }
         Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
             if(!compact)metadataArtwork(metadata)?.let{MetadataArtwork(it,Modifier.width(if(compact)32.dp else 55.dp).height(if(compact)48.dp else 82.dp))}
             Column(Modifier.weight(1f)){
-                if(metadata!=null)Text(listOf(episodeLabel(metadata),metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=TvPalette.Muted,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                if(metadata!=null)Text(listOf(episodeLabel(metadata),metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=TvPalette.Muted,fontSize=11.sp,lineHeight=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                 Text(programme?.description?.takeIf{it.isNotBlank()}?:metadata?.optString("overview")?.takeIf{it.isNotBlank()}?:if(channel==null)"Explore your channels, favorite the ones you love, and settle in." else if(programme==null)"No EPG data for this channel." else channel.name,
-                    color=TvPalette.Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=if(compact)4 else 3,overflow=TextOverflow.Ellipsis)
-                if(metadata!=null && !compact)Text("TMDB · "+(if(metadata.optInt("episode")>0)"Episode information" else if(metadata.optString("kind")=="tv")"Series information" else "Movie information")+metadataNames(metadata,"cast").takeIf{it.isNotBlank()}?.let{" · $it"}.orEmpty(),fontSize=10.sp,color=TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    color=TvPalette.Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=if(compact)2 else 3,overflow=TextOverflow.Ellipsis)
+                if(metadata!=null)Text("TMDB · "+(if(metadata.optInt("episode")>0)"Episode information" else if(metadata.optString("kind")=="tv")"Series information" else "Movie information")+metadataNames(metadata,"cast").takeIf{it.isNotBlank()}?.let{" · $it"}.orEmpty(),fontSize=10.sp,lineHeight=12.sp,color=TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
         }
-        if(playing!=null && !compact)Text("WATCHING  ·  "+playing.name,color=TvPalette.Text.copy(alpha=.8f),fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+        if(playing!=null && !compact)Text("WATCHING  ·  "+playing.name,color=TvPalette.Text.copy(alpha=.8f),fontSize=10.sp,lineHeight=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+    }
     }
 }

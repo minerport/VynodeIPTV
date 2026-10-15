@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -190,7 +191,7 @@ class GuideUiState {
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()){
-          val previewHeight=(maxHeight*0.29f).coerceIn(120.dp,150.dp)
+          val previewHeight=(maxHeight*0.29f).coerceIn(144.dp,156.dp)
           Column(Modifier.fillMaxSize()){
             preview(previewHeight)
             Row(Modifier.fillMaxWidth().height(36.dp),verticalAlignment=Alignment.CenterVertically){
@@ -215,12 +216,12 @@ class GuideUiState {
             }
             LazyColumn(Modifier.weight(1f),state=state.channelScroll,verticalArrangement=Arrangement.spacedBy(2.dp)){
                 items(filtered,key={it.id}){c->
-                    Row(Modifier.fillMaxWidth().height(38.dp),horizontalArrangement=Arrangement.spacedBy(3.dp)){
+                    Row(Modifier.fillMaxWidth().height(44.dp).clipToBounds(),horizontalArrangement=Arrangement.spacedBy(3.dp)){
                         Row(Modifier.width(170.dp)){
                             IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
                             Box(Modifier.weight(1f)){GuideButton(c.name,modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
                         }
-                        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().background(TvPalette.Track,RoundedCornerShape(6.dp))){
+                        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().clipToBounds().background(TvPalette.Track,RoundedCornerShape(6.dp))){
                             val width=maxWidth
                             val timelineFocus=remember{FocusRequester()}
                             var timelineFocused by remember{mutableStateOf(false)}
@@ -234,9 +235,9 @@ class GuideUiState {
                             }.focusable().draggable(dragState,Orientation.Horizontal).semantics{contentDescription="${c.name} programme timeline. Left and right browse times. Select plays live."}){
                             guideCells(cache[c.id]?.second.orEmpty(),start,start+5400000).forEach{cell->
                                 val left=(cell.start-start)/5400000f;val right=(cell.end-start)/5400000f;val p=cell.programme
-                                Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp)){
+                                Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp).clipToBounds().border(1.dp,TvPalette.GuideBorder,RoundedCornerShape(4.dp))){
                                     if(p==null)Text(if(cache.containsKey(c.id))"No EPG data" else "Loading EPG…",Modifier.fillMaxSize().background(TvPalette.Track).padding(8.dp),color=TvPalette.Muted,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
-                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
+                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,modifier=Modifier.fillMaxHeight(),metadata=if(width*(right-left)>=110.dp)metadata[programmeMetadataKey(p)]?.second else null,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
                                 }
                             }
                             if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(TvPalette.Signal))
@@ -291,14 +292,16 @@ class GuideUiState {
 
 @Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, onFocused:()->Unit={}, action: ()->Unit){
     var focused by remember{mutableStateOf(false)}
-    TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=36.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 0.dp,if(focused)TvPalette.Accent else Color.Transparent,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp){
+    TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=36.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 1.dp,if(focused)TvPalette.Accent else TvPalette.GuideBorder,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
         val artwork=metadataArtwork(metadata)
-        if(artwork!=null)MetadataArtwork(artwork,Modifier.width(28.dp).height(40.dp).padding(end=4.dp))
+        if(artwork!=null)MetadataArtwork(artwork,Modifier.width(24.dp).height(34.dp).padding(end=4.dp))
         Column(Modifier.weight(1f)){
-            Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=if(metadata==null)2 else 1,overflow=TextOverflow.Ellipsis,fontWeight=if(focused || selected)FontWeight.SemiBold else FontWeight.Normal,style=MaterialTheme.typography.bodyMedium)
-            if(metadata!=null)Text(listOf(episodeLabel(metadata),metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=if(focused)TvPalette.OnAccent else TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis,fontSize=10.sp)
+            Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=if(metadata==null)2 else 1,overflow=TextOverflow.Ellipsis,fontWeight=if(focused || selected)FontWeight.SemiBold else FontWeight.Normal,style=MaterialTheme.typography.bodyMedium,fontSize=if(metadata==null)14.sp else 12.sp,lineHeight=if(metadata==null)18.sp else 16.sp)
+            if(metadata!=null)Text(listOf(episodeLabel(metadata),metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=if(focused)TvPalette.OnAccent else TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis,fontSize=10.sp,lineHeight=12.sp)
         }
     }
+}
 }
 
 @Composable private fun GroupEditor(group: CustomGroup, channels: List<Channel>,onDismiss:()->Unit,onSave:(String,Set<String>)->Unit,onDelete:()->Unit){

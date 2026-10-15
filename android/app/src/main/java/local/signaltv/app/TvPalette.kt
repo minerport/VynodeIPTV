@@ -15,5 +15,6 @@ object TvPalette {
     val Muted=Color(0xFFADADAD)
     val OnAccent=Color(0xFF171717)
     val Signal=Color(0xFFE6BC78)
+    val GuideBorder=Color(0xFF686868)
     val Line=Color(0xFF373737)
 }
