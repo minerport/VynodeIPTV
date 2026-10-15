@@ -269,7 +269,10 @@ class MainActivity: ComponentActivity() {
                     }
                     val featuredChannel=guideState.focusedChannel.value?:c
                     val programme=guideState.focusedProgramme.value?:currentProgramme(guideState.cache[featuredChannel?.id]?.second.orEmpty(),System.currentTimeMillis())
-                    Column(Modifier.weight(1f)){ key(metadataRevision){ProgrammeFeature(featuredChannel,programme,c,Modifier.fillMaxWidth(),profile)};Row{TextButton(onClick={openRecordings(true)}){Text("● Record / schedule")};TextButton(onClick={openRecordings()}){Text("Recordings")}}}
+                    Column(Modifier.weight(1f)){
+                        var details by remember{mutableStateOf(false)}
+                        if(details)AlertDialog(onDismissRequest={details=false},text={Column(Modifier.heightIn(max=340.dp).verticalScroll(rememberScrollState())){ProgrammeFeature(featuredChannel,programme,c,Modifier.fillMaxWidth(),profile)}},confirmButton={TextButton(onClick={details=false}){Text("Close")}})
+                        key(metadataRevision){ProgrammeFeature(featuredChannel,programme,c,Modifier.fillMaxWidth().height(height),profile,compact=true)};Row{TextButton(onClick={details=true}){Text("Details")};TextButton(onClick={openRecordings(true)}){Text("● Record / schedule")};TextButton(onClick={openRecordings()}){Text("Recordings")}}}
                 }
             },play=::play) }
 

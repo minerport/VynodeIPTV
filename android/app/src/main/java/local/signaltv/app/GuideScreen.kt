@@ -163,7 +163,7 @@ class GuideUiState {
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()){
-          val previewHeight=(maxHeight*0.30f).coerceIn(100.dp,180.dp)
+          val previewHeight=(maxHeight*0.22f).coerceIn(110.dp,120.dp)
           Column(Modifier.fillMaxSize()){
             MediaHeader()
             preview(previewHeight)
@@ -224,19 +224,32 @@ class GuideUiState {
         },confirmButton={Button(onClick={query=searchDraft;keyboard?.hide();searching=false;scope.launch{state.channelScroll.scrollToItem(0)}}){Text("Search")}},dismissButton={TextButton(onClick={keyboard?.hide();searching=false}){Text("Cancel")}})
         LaunchedEffect(Unit){searchFocus.requestFocus();keyboard?.show()}
     }
-    if(arranging)AlertDialog(onDismissRequest={arranging=false},title={Text("Manage groups")},text={Column{
-        Text("Favorites stays pinned. Uncheck to hide a group, or move groups up and down.")
-        LazyColumn(Modifier.height(300.dp)){items(groupRows,key={it.first}){g->val index=groupRows.indexOf(g)
+    if(arranging){
+        var draft by remember{mutableStateOf(preferences)}
+        var committing by remember{mutableStateOf(false)}
+        var saveError by remember{mutableStateOf("")}
+        val draftRows=groupRows.sortedWith(compareBy<Triple<String,String,Int>>{draft.groupOrder.indexOf(it.first).let{n->if(n<0)Int.MAX_VALUE else n}}.thenBy{it.second.lowercase()}.thenBy{it.first})
+        AlertDialog(onDismissRequest={if(!committing)arranging=false},title={Text("Manage groups")},text={Column{
+        Text("Favorites stays pinned. Uncheck to hide a group, or move groups up and down. Done saves your changes.")
+        LazyColumn(Modifier.height(300.dp)){items(draftRows,key={it.first}){g->val index=draftRows.indexOf(g)
             Row{
-                Checkbox(checked=g.first !in preferences.hiddenGroups,onCheckedChange={shown->savePreferences(preferences.copy(hiddenGroups=if(shown)preferences.hiddenGroups-g.first else preferences.hiddenGroups+g.first));if(!shown && selected==g.first)choose("favorites")},enabled=!saving,modifier=Modifier.semantics{contentDescription="Show ${g.second}"})
+                Checkbox(checked=g.first !in draft.hiddenGroups,onCheckedChange={shown->draft=draft.copy(hiddenGroups=if(shown)draft.hiddenGroups-g.first else draft.hiddenGroups+g.first)},enabled=!committing,modifier=Modifier.semantics{contentDescription="Show ${g.second}"})
                 Text(g.second,Modifier.weight(1f).padding(top=14.dp),maxLines=1,overflow=TextOverflow.Ellipsis)
-                fun move(delta:Int){val ids=groupRows.map{it.first}.toMutableList();val id=ids.removeAt(index);ids.add(index+delta,id);savePreferences(preferences.copy(groupOrder=ids))}
-                IconButton(onClick={move(-1)},enabled=index>0&&!saving,modifier=Modifier.semantics{contentDescription="Move ${g.second} up"}){Text("↑")}
-                IconButton(onClick={move(1)},enabled=index<groupRows.lastIndex&&!saving,modifier=Modifier.semantics{contentDescription="Move ${g.second} down"}){Text("↓")}
+                fun move(delta:Int){val ids=draftRows.map{it.first}.toMutableList();val id=ids.removeAt(index);ids.add(index+delta,id);draft=draft.copy(groupOrder=ids)}
+                IconButton(onClick={move(-1)},enabled=index>0&&!committing,modifier=Modifier.semantics{contentDescription="Move ${g.second} up"}){Text("↑")}
+                IconButton(onClick={move(1)},enabled=index<draftRows.lastIndex&&!committing,modifier=Modifier.semantics{contentDescription="Move ${g.second} down"}){Text("↓")}
             }
         }}
-        if(message.isNotEmpty())Text(message)
-    }},confirmButton={TextButton(onClick={arranging=false}){Text("Done")}})
+        if(saveError.isNotEmpty())Text(saveError)
+    }},confirmButton={TextButton(enabled=!committing&&!saving,onClick={
+        committing=true
+        scope.launch{
+            try{store.savePreferences(draft);preferences=draft;arranging=false;if(selected in draft.hiddenGroups)choose("favorites")}
+            catch(e:Exception){saveError=e.message?:"Could not save groups. Try again."}
+            finally{committing=false}
+        }
+    }){Text(if(committing)"Saving..." else "Done")}},dismissButton={TextButton(enabled=!committing,onClick={arranging=false}){Text("Cancel")}})
+    }
     editing?.let{g->GroupEditor(g,channels,onDismiss={editing=null},onSave={name,ids->scope.launch{try{store.save(g.copy(name=name,channelIds=ids));groups=store.load();editing=null;message="Group saved"}catch(e:Exception){message=e.message?:"Could not save group"}}},onDelete={scope.launch{try{store.delete(g.id);groups=store.load();selected="all";editing=null}catch(e:Exception){message=e.message?:"Could not delete group"}}})}
 }
 
