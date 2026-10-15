@@ -60,6 +60,7 @@ func main() {
 	go func() { defer close(dvrDone); app.runDVR(ctx) }()
 	go app.reap(ctx)
 	go app.scheduledRefresh(ctx)
+	go app.runMetadata(ctx)
 	shutdownDone := make(chan struct{})
 	go func() {
 		defer close(shutdownDone)

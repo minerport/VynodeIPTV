@@ -27,12 +27,15 @@ type Channel struct {
 	CategoryName string `json:"categoryName"`
 }
 type Programme struct {
-	Description string    `json:"description,omitempty"`
-	Year        string    `json:"year,omitempty"`
-	ChannelID   string    `json:"channelId"`
-	Title       string    `json:"title"`
-	Start       time.Time `json:"start"`
-	End         time.Time `json:"end"`
+	Season       int       `json:"season,omitempty"`
+	Episode      int       `json:"episode,omitempty"`
+	EpisodeTitle string    `json:"episodeTitle,omitempty"`
+	Description  string    `json:"description,omitempty"`
+	Year         string    `json:"year,omitempty"`
+	ChannelID    string    `json:"channelId"`
+	Title        string    `json:"title"`
+	Start        time.Time `json:"start"`
+	End          time.Time `json:"end"`
 }
 
 func validateProvider(p Provider) error {
@@ -211,6 +214,11 @@ func parseEPG(r io.Reader, channels []Channel, now time.Time) ([]Programme, erro
 			Title       string `xml:"title"`
 			Description string `xml:"desc"`
 			Date        string `xml:"date"`
+			Subtitle    string `xml:"sub-title"`
+			Episodes    []struct {
+				System string `xml:"system,attr"`
+				Value  string `xml:",chardata"`
+			} `xml:"episode-num"`
 		}
 		if err = d.DecodeElement(&p, &start); err != nil {
 			return nil, errors.New("Invalid XMLTV programme")
@@ -226,6 +234,16 @@ func parseEPG(r io.Reader, channels []Channel, now time.Time) ([]Programme, erro
 		if len(p.Title) > 4096 {
 			p.Title = p.Title[:4096]
 		}
+		season, episode := 0, 0
+		for _, n := range p.Episodes {
+			if a, b, ok := parseEpisodeNumber(n.System, n.Value); ok {
+				season, episode = a, b
+				break
+			}
+		}
+		if len(p.Subtitle) > 240 {
+			p.Subtitle = p.Subtitle[:240]
+		}
 		for _, id := range mapping[p.Channel] {
 			year := ""
 			if len(p.Date) >= 4 {
@@ -234,7 +252,7 @@ func parseEPG(r io.Reader, channels []Channel, now time.Time) ([]Programme, erro
 			if len(p.Description) > 8000 {
 				p.Description = p.Description[:8000]
 			}
-			out = append(out, Programme{ChannelID: id, Title: p.Title, Start: a, End: b, Description: p.Description, Year: year})
+			out = append(out, Programme{ChannelID: id, Title: p.Title, Start: a, End: b, Description: p.Description, Year: year, Season: season, Episode: episode, EpisodeTitle: p.Subtitle})
 		}
 	}
 	if len(out) == 0 {

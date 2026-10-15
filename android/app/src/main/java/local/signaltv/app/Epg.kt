@@ -1,6 +1,6 @@
 package local.signaltv.app
 
-data class Programme(val title:String,val start:Long,val end:Long,val description:String="",val year:String="")
+data class Programme(val title:String,val start:Long,val end:Long,val description:String="",val year:String="",val season:Int=0,val episode:Int=0,val episodeTitle:String="")
 data class GuideCell(val start:Long,val end:Long,val programme:Programme?)
 
 suspend fun providerEpg(now:Long,fetch:suspend (String)->List<Programme>):List<Programme>{

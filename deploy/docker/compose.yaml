@@ -1,6 +1,6 @@
 services:
   iptv:
-    image: iptv-server:0.12.1
+    image: iptv-server:0.13.0
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile

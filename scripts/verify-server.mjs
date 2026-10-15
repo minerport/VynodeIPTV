@@ -18,9 +18,14 @@ try{
   const signedIn=await req('/api/v1/auth/login',{token:'',method:'POST',body:credentials});admin=signedIn.token;
  }
  await req('/api/v1/channels',{token:'',status:401});
- const metadataSettings=await req('/api/v1/metadata/settings');assert.equal(metadataSettings.enabled,false);assert.equal(metadataSettings.configured,false);assert.equal('token' in metadataSettings,false);
+ const metadataSettings=await req('/api/v1/metadata/settings');assert.equal(metadataSettings.enabled,false);assert.equal(metadataSettings.configured,false);assert.equal(metadataSettings.background,true);assert.equal('token' in metadataSettings,false);
  assert.equal((await req('/api/v1/metadata/lookup',{method:'POST',body:{title:'Synthetic programme'}})).state,'disabled');
  await req('/api/v1/metadata/settings',{token:'',status:401});
+ await req('/api/v1/metadata/settings',{method:'PUT',body:{enabled:false,background:false}});
+ await req('/api/v1/metadata/settings',{method:'PUT',body:{enabled:false}});
+ assert.equal((await req('/api/v1/metadata/settings')).background,false,'Omitted background flag must retain preference');
+ await req('/api/v1/metadata/settings',{method:'PUT',body:{enabled:false,background:true}});
+
  assert.equal((await fetch(base+'/tmdb-logo.svg')).status,200);
  const guidePage=await fetch(base+'/');assert.ok(guidePage.headers.get('content-security-policy').includes("img-src 'self' data: https://image.tmdb.org;"),'Browser must allow TMDB artwork');
  const pair=await req('/api/v1/pairing/requests',{token:'',method:'POST',body:{name:'Automated smoke test'},status:201});device=pair.id;

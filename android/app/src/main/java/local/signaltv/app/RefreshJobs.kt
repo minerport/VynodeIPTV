@@ -21,6 +21,7 @@ object RefreshJobs {
   val policy=RefreshPreferences(context,p);val repo:Repository=if(p.mode=="server")ServerRepository(p)else XtreamRepository(p,context)
   if(policy.channels && policy.due("channels"))try{val entries=repo.refreshChannels();CatalogCache(context,p).save(entries);policy.success("channels")}catch(e:CancellationException){throw e}catch(_:Exception){}
   if(policy.epg && policy.due("epg"))try{val entries=CatalogCache(context,p).load().ifEmpty{repo.channels()};repo.refreshEpg(entries);policy.success("epg")}catch(e:CancellationException){throw e}catch(_:Exception){}
+  if(p.mode!="server")try{withTimeoutOrNull(90000){TmdbMetadata.get(context).warmBatch(context,p,20)}}catch(e:CancellationException){throw e}catch(_:Exception){}
  }}
 }
 class DailyRefreshService:JobService(){

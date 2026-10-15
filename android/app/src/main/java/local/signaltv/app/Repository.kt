@@ -68,7 +68,7 @@ class ServerRepository(override val profile: Profile): Repository {
         val result=channels.associate{it.id to mutableListOf<Programme>()}
         for(i in 0 until data.length()){
             val p=data.getJSONObject(i)
-            runCatching{Programme(p.getString("title"),java.time.Instant.parse(p.getString("start")).toEpochMilli(),java.time.Instant.parse(p.getString("end")).toEpochMilli(),p.optString("description"),p.optString("year"))}.getOrNull()?.let{result[p.optString("channelId")]?.add(it)}
+            runCatching{Programme(p.getString("title"),java.time.Instant.parse(p.getString("start")).toEpochMilli(),java.time.Instant.parse(p.getString("end")).toEpochMilli(),p.optString("description"),p.optString("year"),p.optInt("season"),p.optInt("episode"),p.optString("episodeTitle"))}.getOrNull()?.let{result[p.optString("channelId")]?.add(it)}
         }
         return result
     }
@@ -76,7 +76,7 @@ class ServerRepository(override val profile: Profile): Repository {
     override suspend fun play(channel: Channel)=playback(JSONObject(api("/playback/sessions","POST",JSONObject().put("channelId",channel.id).put("profile",profile.streamProfile))))
     override suspend fun heartbeat(id: String)=playback(JSONObject(api("/playback/sessions/$id/heartbeat","POST",JSONObject())))
     override suspend fun stop(id: String) { api("/playback/sessions/$id","DELETE") }
-    override suspend fun programmes(channel: Channel): List<Programme> { val data=JSONObject(api("/guide?channelId="+Uri.encode(channel.id))).getJSONArray("programmes");return (0 until data.length()).mapNotNull { data.getJSONObject(it).let { p -> runCatching { Programme(p.getString("title"),java.time.Instant.parse(p.getString("start")).toEpochMilli(),java.time.Instant.parse(p.getString("end")).toEpochMilli(),p.optString("description"),p.optString("year")) }.getOrNull() } } }
+    override suspend fun programmes(channel: Channel): List<Programme> { val data=JSONObject(api("/guide?channelId="+Uri.encode(channel.id))).getJSONArray("programmes");return (0 until data.length()).mapNotNull { data.getJSONObject(it).let { p -> runCatching { Programme(p.getString("title"),java.time.Instant.parse(p.getString("start")).toEpochMilli(),java.time.Instant.parse(p.getString("end")).toEpochMilli(),p.optString("description"),p.optString("year"),p.optInt("season"),p.optInt("episode"),p.optString("episodeTitle")) }.getOrNull() } } }
 
 }
 class XtreamRepository(override val profile: Profile,context:android.content.Context): Repository {
@@ -109,7 +109,7 @@ class XtreamRepository(override val profile: Profile,context:android.content.Con
             return (0 until a.length()).mapNotNull{index->val p=a.optJSONObject(index)?:return@mapNotNull null
                 val start=epgTime(p.optString("start_timestamp"),p.optString("start"),epgZone)
                 val end=epgTime(p.optString("stop_timestamp",p.optString("end_timestamp")),p.optString("end",p.optString("stop")),epgZone)
-                if(start>0 && end>start)Programme(decodeEpgText(p.optString("title")).ifBlank{"Untitled programme"},start,end,decodeEpgText(p.optString("description")))else null
+                if(start>0 && end>start)Programme(decodeEpgText(p.optString("title")).ifBlank{"Untitled programme"},start,end,decodeEpgText(p.optString("description")),season=p.optInt("season"),episode=p.optInt("episode"),episodeTitle=decodeEpgText(p.optString("episode_title")))else null
             }
         }
         providerEpg(System.currentTimeMillis()){fetch(it)}

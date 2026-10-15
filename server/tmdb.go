@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,24 +19,32 @@ import (
 )
 
 type TMDBSettings struct {
-	Token   string `json:"token"`
-	Enabled bool   `json:"enabled"`
+	Token      string `json:"token"`
+	Enabled    bool   `json:"enabled"`
+	Background *bool  `json:"background,omitempty"`
 }
 type MetadataQuery struct {
-	Title string `json:"title"`
-	Year  string `json:"year"`
+	Title        string `json:"title"`
+	Year         string `json:"year"`
+	Season       int    `json:"season"`
+	Episode      int    `json:"episode"`
+	EpisodeTitle string `json:"episodeTitle"`
 }
 type Metadata struct {
-	ID       int      `json:"id"`
-	Kind     string   `json:"kind"`
-	Title    string   `json:"title"`
-	Year     string   `json:"year"`
-	Overview string   `json:"overview"`
-	Poster   string   `json:"poster"`
-	Backdrop string   `json:"backdrop"`
-	Genres   []string `json:"genres"`
-	Cast     []string `json:"cast"`
-	URL      string   `json:"url"`
+	ID           int      `json:"id"`
+	Kind         string   `json:"kind"`
+	Title        string   `json:"title"`
+	Year         string   `json:"year"`
+	Overview     string   `json:"overview"`
+	Poster       string   `json:"poster"`
+	Backdrop     string   `json:"backdrop"`
+	Genres       []string `json:"genres"`
+	Cast         []string `json:"cast"`
+	URL          string   `json:"url"`
+	Season       int      `json:"season,omitempty"`
+	Episode      int      `json:"episode,omitempty"`
+	EpisodeTitle string   `json:"episodeTitle,omitempty"`
+	Still        string   `json:"still,omitempty"`
 }
 type metadataEntry struct {
 	State   string    `json:"state"`
@@ -133,6 +142,20 @@ func cleanMetadataQuery(q MetadataQuery) MetadataQuery {
 		q.Year = ""
 	}
 	q.Title = strings.TrimSpace(q.Title)
+	if q.Episode <= 0 || q.Episode > 10000 || q.Season < 0 || q.Season > 1000 {
+		q.Season = 0
+		q.Episode = 0
+	}
+	if m := episodeTitlePattern.FindStringSubmatch(q.Title); len(m) > 0 {
+		season, _ := strconv.Atoi(m[2])
+		episode, _ := strconv.Atoi(m[3])
+		if episode > 0 && (q.Episode == 0 || (q.Season == season && q.Episode == episode)) {
+			q.Title = strings.TrimSpace(m[1])
+			q.Season = season
+			q.Episode = episode
+		}
+	}
+	q.EpisodeTitle = strings.TrimSpace(q.EpisodeTitle)
 	if m := metadataYear.FindStringSubmatch(q.Title); len(m) > 1 {
 		q.Title = strings.TrimSpace(metadataYear.ReplaceAllString(q.Title, ""))
 		if q.Year == "" {
@@ -170,7 +193,10 @@ func chooseTMDB(q MetadataQuery, results []tmdbCandidate, pages int) *tmdbCandid
 		if normalizeMetadata(name) != title && normalizeMetadata(original) != title {
 			continue
 		}
-		if q.Year != "" && !strings.HasPrefix(date, q.Year+"-") {
+		if q.Episode > 0 && c.Kind != "tv" {
+			continue
+		}
+		if q.Episode == 0 && q.Year != "" && !strings.HasPrefix(date, q.Year+"-") {
 			continue
 		}
 		matches = append(matches, c)
@@ -197,6 +223,9 @@ func (t *tmdbService) get(ctx context.Context, token, path string, out any) erro
 	if res.StatusCode == 401 || res.StatusCode == 403 {
 		return errors.New("TMDB rejected the token")
 	}
+	if res.StatusCode == 404 {
+		return errTMDBNotFound
+	}
 	if res.StatusCode != 200 {
 		return errors.New("TMDB unavailable; provider guide retained")
 	}
@@ -210,6 +239,8 @@ func (t *tmdbService) get(ctx context.Context, token, path string, out any) erro
 	return nil
 }
 
+var errTMDBNotFound = errors.New("TMDB item not found")
+var episodeTitlePattern = regexp.MustCompile(`(?i)^(.+?)\s+[-:–]?\s*S([0-9]{1,3})\s*E([0-9]{1,4})\s*$`)
 var imagePath = regexp.MustCompile(`^/[A-Za-z0-9_-]+\.(jpg|png)$`)
 
 func tmdbImage(path, size string) string {
@@ -270,11 +301,37 @@ func (t *tmdbService) fetch(ctx context.Context, token string, q MetadataQuery) 
 			m.Cast = append(m.Cast, c.Name)
 		}
 	}
+	if c.Kind == "tv" && q.Episode > 0 {
+		var ep struct {
+			Name     string `json:"name"`
+			Overview string `json:"overview"`
+			Still    string `json:"still_path"`
+			Season   int    `json:"season_number"`
+			Episode  int    `json:"episode_number"`
+		}
+		err := t.get(ctx, token, fmt.Sprintf("/tv/%d/season/%d/episode/%d?language=en-US", c.ID, q.Season, q.Episode), &ep)
+		if err != nil && !errors.Is(err, errTMDBNotFound) {
+			return nil, err
+		}
+		if err == nil && ep.Season == q.Season && ep.Episode == q.Episode && (q.EpisodeTitle == "" || normalizeMetadata(q.EpisodeTitle) == normalizeMetadata(ep.Name)) {
+			m.Season = q.Season
+			m.Episode = q.Episode
+			m.EpisodeTitle = ep.Name
+			m.Still = tmdbImage(ep.Still, "w780")
+			if strings.TrimSpace(ep.Overview) != "" {
+				m.Overview = ep.Overview
+				if len(m.Overview) > 6000 {
+					m.Overview = m.Overview[:6000]
+				}
+			}
+			m.URL = fmt.Sprintf("https://www.themoviedb.org/tv/%d/season/%d/episode/%d", c.ID, q.Season, q.Episode)
+		}
+	}
 	return m, nil
 }
 func (t *tmdbService) lookup(q MetadataQuery) metadataEntry {
 	q = cleanMetadataQuery(q)
-	key := normalizeMetadata(q.Title) + "|" + q.Year
+	key := metadataKey(q)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	settings := t.store.snapshot().TMDB
@@ -347,12 +404,15 @@ func (a *App) tmdbRoutes(m *http.ServeMux) {
 		a.tmdb.mu.Lock()
 		status := a.tmdb.status
 		a.tmdb.mu.Unlock()
-		send(w, 200, map[string]any{"enabled": s.Enabled, "configured": s.Token != "", "status": status})
+		send(w, 200, map[string]any{"enabled": s.Enabled, "configured": s.Token != "", "status": status, "background": s.Background == nil || *s.Background})
 	}))
 	m.HandleFunc("PUT /api/v1/metadata/settings", a.auth(true, func(w http.ResponseWriter, r *http.Request) {
 		var input TMDBSettings
 		if !decode(w, r, &input) {
 			return
+		}
+		if input.Background == nil {
+			input.Background = a.store.snapshot().TMDB.Background
 		}
 		input.Token = strings.TrimSpace(input.Token)
 		if len(input.Token) > 4096 || strings.ContainsAny(input.Token, "\r\n") {
@@ -404,7 +464,7 @@ func (a *App) tmdbRoutes(m *http.ServeMux) {
 		if !decode(w, r, &q) {
 			return
 		}
-		if len(q.Title) > 240 || len(q.Year) > 4 {
+		if len(q.Title) > 240 || len(q.Year) > 4 || len(q.EpisodeTitle) > 240 || q.Season < 0 || q.Season > 1000 || q.Episode < 0 || q.Episode > 10000 {
 			fail(w, 400, "Invalid programme metadata")
 			return
 		}

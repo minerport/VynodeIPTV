@@ -243,11 +243,11 @@ class GuideUiState {
 @Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, onFocused:()->Unit={}, action: ()->Unit){
     var focused by remember{mutableStateOf(false)}
     TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=48.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 0.dp,if(focused)TvPalette.Accent else Color.Transparent,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
-        val artwork=metadata?.optString("poster")?.takeIf{safeMetadataArtwork(it)}?:metadata?.optString("backdrop")?.takeIf{safeMetadataArtwork(it)}
+        val artwork=metadataArtwork(metadata)
         if(artwork!=null)MetadataArtwork(artwork,Modifier.width(28.dp).height(40.dp).padding(end=4.dp))
         Column(Modifier.weight(1f)){
             Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=if(metadata==null)2 else 1,overflow=TextOverflow.Ellipsis,fontWeight=if(focused || selected)FontWeight.SemiBold else FontWeight.Normal,style=MaterialTheme.typography.bodyMedium)
-            if(metadata!=null)Text(listOf(metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=if(focused)TvPalette.OnAccent else TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis,fontSize=10.sp)
+            if(metadata!=null)Text(listOf(episodeLabel(metadata),metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=if(focused)TvPalette.OnAccent else TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis,fontSize=10.sp)
         }
     }
 }

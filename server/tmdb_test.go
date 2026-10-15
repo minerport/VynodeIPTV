@@ -58,7 +58,7 @@ func TestTMDBSettingsCacheAndOwnership(t *testing.T) {
 	}))
 	defer server.Close()
 	a.tmdb.base = server.URL
-	if w := call(a, "PUT", "/api/v1/metadata/settings", a.admin, `{"enabled":true,"token":"fixture-token"}`); w.Code != 200 {
+	if w := call(a, "PUT", "/api/v1/metadata/settings", a.admin, `{"enabled":true,"token":"fixture-token","background":false}`); w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	if err := a.store.update(func(s *State) { s.Refresh.EPGDaily = true }); err != nil {
@@ -67,6 +67,9 @@ func TestTMDBSettingsCacheAndOwnership(t *testing.T) {
 	restored, e := openStore(a.store.dir)
 	if e != nil || restored.snapshot().TMDB.Token != "fixture-token" {
 		t.Fatal("settings not retained")
+	}
+	if restored.snapshot().TMDB.Background == nil || *restored.snapshot().TMDB.Background {
+		t.Fatal("background preference not retained")
 	}
 	raw, _ := os.ReadFile(filepath.Join(a.store.dir, "state.enc"))
 	if strings.Contains(string(raw), "fixture-token") {
