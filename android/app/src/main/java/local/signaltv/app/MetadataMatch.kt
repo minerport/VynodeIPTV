@@ -30,3 +30,5 @@ fun chooseMetadata(q:MetadataQuery,results:List<MetadataCandidate>,pages:Int):Me
  return results.filter{!it.adult&&it.id>0&&it.kind in listOf("movie","tv")&&(metadataTitle(it.title)==title||metadataTitle(it.original)==title)&&(q.episode==0||it.kind=="tv")&&(q.episode>0||q.year.isBlank()||it.date.startsWith(q.year+"-"))}.singleOrNull()
 }
 fun safeMetadataArtwork(value:String)=Regex("https://image\\.tmdb\\.org/t/p/(w342|w780)/[A-Za-z0-9_-]+\\.(jpg|png)").matches(value)
+
+fun explicitEpisode(season:String?,episode:String?):Pair<Int,Int>? {val s=season?.toIntOrNull()?:return null;val e=episode?.toIntOrNull()?:return null;return if(s in 0..1000 && e in 1..10000)s to e else null}

@@ -1,6 +1,6 @@
 # VynodeIPTV
 
-Self-hosted IPTV server, browser player, and Android TV companion. **Server preview 0.13.0 · Android preview 0.13.0.**
+Self-hosted IPTV server, browser player, and Android TV companion. **Server preview 0.13.1 · Android preview 0.13.1.**
 
 The server accepts your Xtream connection, imports channels/groups and EPG, and supplies authenticated HLS to each player. Android can use the server as its streaming middleware or connect directly in standalone mode. No subscriptions, channels or provider credentials are included.
 
@@ -60,13 +60,13 @@ docker run --rm -v "$PWD/server:/src" -w /src golang:1.27.2-bookworm sh -c 'go t
 docker build -f deploy/docker/Dockerfile -t vynodeiptv:local .
 ```
 
-The GitHub workflow tests the Go server and browser behavior, starts an isolated synthetic stream, verifies authentication and forced-worker recovery, and only then publishes version tags to GHCR. `latest` tracks the most recently published version tag without a prerelease suffix. The current numbered image is `ghcr.io/minerport/vynodeiptv:0.13.0`; pin it for controlled upgrades. The application remains preview software.
+The GitHub workflow tests the Go server and browser behavior, starts an isolated synthetic stream, verifies authentication and forced-worker recovery, and only then publishes version tags to GHCR. `latest` tracks the most recently published version tag without a prerelease suffix. The current numbered image is `ghcr.io/minerport/vynodeiptv:0.13.1`; pin it for controlled upgrades. The application remains preview software.
 
 For the existing local development Compose setup, run `scripts/start-local.ps1 -Build`. It uses the existing Signal TV local volumes and does not switch the running development installation to GHCR automatically.
 
 Build Android with Java 17 and Android SDK 36: `android/gradlew -p android :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`. Debug APKs and signing keys are not committed. Provider credentials, runtime state and private test data are excluded from Git and the container build context.
 
-See [release validation](docs/VALIDATION-0.13.0.md), [architecture roadmap](IPTV-ARCHITECTURE-PLAN.md), [development history](docs/DEVELOPMENT-HISTORY.md) and [third-party notices](THIRD-PARTY-NOTICES.md).
+See [release validation](docs/VALIDATION-0.13.1.md), [architecture roadmap](IPTV-ARCHITECTURE-PLAN.md), [development history](docs/DEVELOPMENT-HISTORY.md) and [third-party notices](THIRD-PARTY-NOTICES.md).
 
 ## Current limits
 

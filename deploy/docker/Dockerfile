@@ -5,7 +5,7 @@ RUN go test ./... && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /iptv-
 FROM debian:bookworm-slim
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg ca-certificates tini curl tzdata && rm -rf /var/lib/apt/lists/* && groupadd -g 10001 iptv && useradd -u 10001 -g iptv -M iptv && mkdir /config /transcode /recordings && chown iptv:iptv /config /transcode /recordings
 COPY --from=build /iptv-server /usr/local/bin/iptv-server
-ARG VERSION=0.13.0
+ARG VERSION=0.13.1
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="VynodeIPTV" \
       org.opencontainers.image.description="Self-hosted IPTV server and browser player for Android TV and Unraid" \

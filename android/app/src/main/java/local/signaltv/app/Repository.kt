@@ -109,7 +109,8 @@ class XtreamRepository(override val profile: Profile,context:android.content.Con
             return (0 until a.length()).mapNotNull{index->val p=a.optJSONObject(index)?:return@mapNotNull null
                 val start=epgTime(p.optString("start_timestamp"),p.optString("start"),epgZone)
                 val end=epgTime(p.optString("stop_timestamp",p.optString("end_timestamp")),p.optString("end",p.optString("stop")),epgZone)
-                if(start>0 && end>start)Programme(decodeEpgText(p.optString("title")).ifBlank{"Untitled programme"},start,end,decodeEpgText(p.optString("description")),season=p.optInt("season"),episode=p.optInt("episode"),episodeTitle=decodeEpgText(p.optString("episode_title")))else null
+                val episode=explicitEpisode(p.optString("season"),p.optString("episode"))
+                if(start>0 && end>start)Programme(decodeEpgText(p.optString("title")).ifBlank{"Untitled programme"},start,end,decodeEpgText(p.optString("description")),season=episode?.first?:0,episode=episode?.second?:0,episodeTitle=decodeEpgText(p.optString("episode_title")))else null
             }
         }
         providerEpg(System.currentTimeMillis()){fetch(it)}
