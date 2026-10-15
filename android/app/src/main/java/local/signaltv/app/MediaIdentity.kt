@@ -48,11 +48,11 @@ import java.time.format.DateTimeFormatter
             if(live)LinearProgressIndicator(progress={((now-programme.start).toFloat()/(programme.end-programme.start)).coerceIn(0f,1f)},modifier=Modifier.widthIn(max=240.dp).fillMaxWidth().height(3.dp),color=TvPalette.Signal,trackColor=TvPalette.Line)
         }
         Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
-            metadataArtwork(metadata)?.let{MetadataArtwork(it,Modifier.width(if(compact)32.dp else 55.dp).height(if(compact)48.dp else 82.dp))}
+            if(!compact)metadataArtwork(metadata)?.let{MetadataArtwork(it,Modifier.width(if(compact)32.dp else 55.dp).height(if(compact)48.dp else 82.dp))}
             Column(Modifier.weight(1f)){
                 if(metadata!=null)Text(listOf(episodeLabel(metadata),metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=TvPalette.Muted,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                 Text(programme?.description?.takeIf{it.isNotBlank()}?:metadata?.optString("overview")?.takeIf{it.isNotBlank()}?:if(channel==null)"Explore your channels, favorite the ones you love, and settle in." else if(programme==null)"No EPG data for this channel." else channel.name,
-                    color=TvPalette.Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=if(compact)2 else 3,overflow=TextOverflow.Ellipsis)
+                    color=TvPalette.Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=if(compact)4 else 3,overflow=TextOverflow.Ellipsis)
                 if(metadata!=null && !compact)Text("TMDB · "+(if(metadata.optInt("episode")>0)"Episode information" else if(metadata.optString("kind")=="tv")"Series information" else "Movie information")+metadataNames(metadata,"cast").takeIf{it.isNotBlank()}?.let{" · $it"}.orEmpty(),fontSize=10.sp,color=TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
         }

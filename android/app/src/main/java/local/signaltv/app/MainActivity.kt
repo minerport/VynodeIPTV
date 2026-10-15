@@ -262,17 +262,29 @@ class MainActivity: ComponentActivity() {
                             if(c==null)Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Text("VYNODE",style=MaterialTheme.typography.headlineMedium,color=TvPalette.Accent);Text("Choose something worth watching",style=MaterialTheme.typography.bodySmall,color=TvPalette.Muted)}
                             if(c!=null)Box(Modifier.matchParentSize().clickable(onClickLabel="Open fullscreen"){ensureStreams();fullScreen=true})
                         }
-                        if(c!=null)Row(Modifier.width(height*16f/9f).padding(top=4.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                            FilledTonalButton(onClick={ensureStreams();fullScreen=true}){Text("Fullscreen")}
-                            TextButton(onClick={stopPlayback()}){Text("Remove all streams")}
-                        }
                     }
                     val featuredChannel=guideState.focusedChannel.value?:c
                     val programme=guideState.focusedProgramme.value?:currentProgramme(guideState.cache[featuredChannel?.id]?.second.orEmpty(),System.currentTimeMillis())
                     Column(Modifier.weight(1f)){
                         var details by remember{mutableStateOf(false)}
                         if(details)AlertDialog(onDismissRequest={details=false},text={Column(Modifier.heightIn(max=340.dp).verticalScroll(rememberScrollState())){ProgrammeFeature(featuredChannel,programme,c,Modifier.fillMaxWidth(),profile)}},confirmButton={TextButton(onClick={details=false}){Text("Close")}})
-                        key(metadataRevision){ProgrammeFeature(featuredChannel,programme,c,Modifier.fillMaxWidth().height(height),profile,compact=true)};Row{TextButton(onClick={details=true}){Text("Details")};TextButton(onClick={openRecordings(true)}){Text("● Record / schedule")};TextButton(onClick={openRecordings()}){Text("Recordings")}}}
+                        Row{
+                            key(metadataRevision){ProgrammeFeature(featuredChannel,programme,c,Modifier.weight(1f).height(height),profile,compact=true)}
+                            Box{
+                                var menu by remember{mutableStateOf(false)}
+                                IconButton(onClick={menu=true}){Text("⋮",style=MaterialTheme.typography.headlineSmall)}
+                                DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
+                                    DropdownMenuItem(text={Text("Programme details")},onClick={menu=false;details=true})
+                                    DropdownMenuItem(text={Text("Fullscreen")},enabled=c!=null,onClick={menu=false;ensureStreams();fullScreen=true})
+                                    DropdownMenuItem(text={Text("Stop all streams")},enabled=c!=null,onClick={menu=false;stopPlayback()})
+                                    DropdownMenuItem(text={Text("Record / schedule")},onClick={menu=false;openRecordings(true)})
+                                    DropdownMenuItem(text={Text("Recordings")},onClick={menu=false;openRecordings()})
+                                    DropdownMenuItem(text={Text("Video wall")},onClick={menu=false;wallMode=wallMode.enter();multiView=true;saveScene();ensureStreams()})
+                                    DropdownMenuItem(text={Text("Settings")},onClick={menu=false;settings=true})
+                                }
+                            }
+                        }
+                    }
                 }
             },play=::play) }
 

@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -163,23 +164,29 @@ class GuideUiState {
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()){
-          val previewHeight=(maxHeight*0.22f).coerceIn(110.dp,120.dp)
+          val previewHeight=(maxHeight*0.29f).coerceIn(120.dp,150.dp)
           Column(Modifier.fillMaxSize()){
-            MediaHeader()
             preview(previewHeight)
-            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                TextButton(onClick={navigationOpen=!navigationOpen}){Text(if(navigationOpen)"Hide groups" else "‹ Groups")}
-                if(custom!=null)TextButton(onClick={editing=custom}){Text("Edit group")}
-                TextButton(onClick={shiftTime(-1800000)}){Text("‹ Earlier")};TextButton(onClick={start=System.currentTimeMillis()/1800000*1800000}){Text("Now")};TextButton(onClick={shiftTime(1800000)}){Text("Later ›")}
-                Text(DateTimeFormatter.ofPattern("EEE d MMM").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(start)),Modifier.padding(top=13.dp))
-            }
-            Row(Modifier.fillMaxWidth().padding(vertical=6.dp)){
-                Text(if(selected=="favorites")"Favorites" else groupRows.find{it.first==selected}?.second?:"CHANNEL",Modifier.width(170.dp),maxLines=1,style=MaterialTheme.typography.labelSmall)
+            Row(Modifier.fillMaxWidth().height(36.dp),verticalAlignment=Alignment.CenterVertically){
+                Row(Modifier.width(170.dp),verticalAlignment=Alignment.CenterVertically){
+                    Box{
+                        var menu by remember{mutableStateOf(false)}
+                        IconButton(onClick={menu=true},modifier=Modifier.width(36.dp).semantics{contentDescription="Guide menu"}){Text("☰")}
+                        DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
+                            DropdownMenuItem(text={Text("Channel groups")},onClick={menu=false;navigationOpen=!navigationOpen})
+                            if(custom!=null)DropdownMenuItem(text={Text("Edit group")},onClick={menu=false;editing=custom})
+                            DropdownMenuItem(text={Text("Earlier")},onClick={menu=false;shiftTime(-1800000)})
+                            DropdownMenuItem(text={Text("Jump to now")},onClick={menu=false;start=System.currentTimeMillis()/1800000*1800000})
+                            DropdownMenuItem(text={Text("Later")},onClick={menu=false;shiftTime(1800000)})
+                        }
+                    }
+                    Text(DateTimeFormatter.ofPattern("EEE d MMM").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(start)),maxLines=1,style=MaterialTheme.typography.labelSmall)
+                }
                 repeat(3){Text(clock(start+it*1800000),Modifier.weight(1f),style=MaterialTheme.typography.labelSmall)}
             }
-            LazyColumn(Modifier.weight(1f),state=state.channelScroll,verticalArrangement=Arrangement.spacedBy(4.dp)){
+            LazyColumn(Modifier.weight(1f),state=state.channelScroll,verticalArrangement=Arrangement.spacedBy(2.dp)){
                 items(filtered,key={it.id}){c->
-                    Row(Modifier.fillMaxWidth().height(52.dp),horizontalArrangement=Arrangement.spacedBy(3.dp)){
+                    Row(Modifier.fillMaxWidth().height(38.dp),horizontalArrangement=Arrangement.spacedBy(3.dp)){
                         Row(Modifier.width(170.dp)){
                             IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},enabled=!saving,modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
                             Box(Modifier.weight(1f)){GuideButton(c.name,modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
@@ -200,7 +207,7 @@ class GuideUiState {
                                 val left=(cell.start-start)/5400000f;val right=(cell.end-start)/5400000f;val p=cell.programme
                                 Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp)){
                                     if(p==null)Text(if(cache.containsKey(c.id))"No EPG data" else "Loading EPG…",Modifier.fillMaxSize().background(TvPalette.Track).padding(8.dp),color=TvPalette.Muted,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
-                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,metadata=metadata[programmeMetadataKey(p)]?.second,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
+                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
                                 }
                             }
                             if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(TvPalette.Signal))
@@ -255,7 +262,7 @@ class GuideUiState {
 
 @Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, onFocused:()->Unit={}, action: ()->Unit){
     var focused by remember{mutableStateOf(false)}
-    TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=48.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 0.dp,if(focused)TvPalette.Accent else Color.Transparent,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
+    TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=36.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 0.dp,if(focused)TvPalette.Accent else Color.Transparent,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
         val artwork=metadataArtwork(metadata)
         if(artwork!=null)MetadataArtwork(artwork,Modifier.width(28.dp).height(40.dp).padding(end=4.dp))
         Column(Modifier.weight(1f)){
