@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -38,6 +40,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private fun clock(value: Long)=DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(value))
+
+private suspend fun requestAttachedFocus(requester:FocusRequester){
+    repeat(3){
+        withFrameNanos{}
+        try{if(requester.requestFocus())return}catch(_:IllegalStateException){ /* Item is not attached yet. */ }
+    }
+}
 
 class GuideUiState {
     val refreshMessage=mutableStateOf("")
@@ -59,6 +68,7 @@ class GuideUiState {
 
 @Composable fun GuideScreen(channels: List<Channel>, repo: Repository, state: GuideUiState, preview: @Composable (androidx.compose.ui.unit.Dp)->Unit = {}, onWall:()->Unit={}, onSettings:()->Unit={}, onRefresh:()->Unit={}, onRefreshEpg:()->Unit={}, play: (Channel)->Unit) {
     val context=LocalContext.current
+    val focusManager=LocalFocusManager.current
     val store=remember(repo.profile){Groups(context,repo.profile)}
     val scope=rememberCoroutineScope()
     var navigationOpen by state.navigationOpen
@@ -102,7 +112,23 @@ class GuideUiState {
         }
     }
     val groupRows=(listOf(Triple("all","All channels",channels.size))+groups.map{Triple("custom:"+it.id,it.name,it.channelIds.size)}+providerGroups.map{(id,list)->Triple("provider:"+id,list.first().groupName,list.size)}).sortedWith(compareBy<Triple<String,String,Int>>{preferences.groupOrder.indexOf(it.first).let{index->if(index<0)Int.MAX_VALUE else index}}.thenBy{it.second.lowercase()}.thenBy{it.first})
-    fun savePreferences(next: GuidePreferences){if(saving)return;saving=true;scope.launch{try{store.savePreferences(next);preferences=next}catch(e:Exception){message=e.message?:"Could not save preferences"}finally{saving=false}}}
+    fun savePreferences(next: GuidePreferences){
+        if(saving)return
+        saving=true
+        scope.launch{
+            try{
+                store.savePreferences(next)
+                // Move focus before removing a focused favorite row from the lazy list.
+                val removed=selected=="favorites" && preferences.favorites.any{it !in next.favorites}
+                if(removed)focusManager.clearFocus(force=true)
+                preferences=next
+                message=""
+                if(removed){state.channelScroll.scrollToItem(0);focusGuide=true}
+            }catch(e:CancellationException){throw e}
+            catch(e:Exception){message=e.message?:"Could not save preferences"}
+            finally{saving=false}
+        }
+    }
     fun choose(id:String){selected=id;navigationOpen=false;scope.launch{state.channelScroll.scrollToItem(0);focusGuide=true}}
     BackHandler(enabled=!navigationOpen && editing==null && !arranging){navigationOpen=true}
     LaunchedEffect(state.returnChannel.value,filtered){
@@ -114,15 +140,15 @@ class GuideUiState {
         }
         state.channelScroll.scrollToItem(index)
         withFrameNanos{}
-        returnFocus.requestFocus()
+        requestAttachedFocus(returnFocus)
         state.returnChannel.value=null
     }
-    LaunchedEffect(focusGuide,filtered){if(focusGuide && filtered.isNotEmpty()){withFrameNanos{};firstChannel.requestFocus();focusGuide=false}}
+    LaunchedEffect(focusGuide,filtered){if(focusGuide && filtered.isNotEmpty()){withFrameNanos{};requestAttachedFocus(firstChannel);focusGuide=false}}
     LaunchedEffect(navigationOpen){if(navigationOpen){
         val index=groupRows.filter{it.first !in preferences.hiddenGroups}.indexOfFirst{it.first==selected}
         if(index>=0)state.groupScroll.scrollToItem(index)
         withFrameNanos{}
-        if(selected=="favorites" || index>=0)groupFocus.requestFocus()
+        if(selected=="favorites" || index>=0)requestAttachedFocus(groupFocus)
     }}
     LaunchedEffect(store){try{groups=store.load();preferences=store.preferences()}catch(e:Exception){message=e.message?:"Could not load groups"}}
     LaunchedEffect(Unit){while(true){delay(30000);now=System.currentTimeMillis()}}
@@ -180,6 +206,9 @@ class GuideUiState {
                             DropdownMenuItem(text={Text("Later")},onClick={menu=false;shiftTime(1800000)})
                         }
                     }
+                    IconButton(onClick={searchDraft=query;searching=true},modifier=Modifier.width(36.dp)){
+                        Icon(painterResource(R.drawable.rail_search),contentDescription="Search channels",tint=if(query.isEmpty())TvPalette.Text else TvPalette.Signal)
+                    }
                     Text(DateTimeFormatter.ofPattern("EEE d MMM").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(start)),maxLines=1,style=MaterialTheme.typography.labelSmall)
                 }
                 repeat(3){Text(clock(start+it*1800000),Modifier.weight(1f),style=MaterialTheme.typography.labelSmall)}
@@ -188,7 +217,7 @@ class GuideUiState {
                 items(filtered,key={it.id}){c->
                     Row(Modifier.fillMaxWidth().height(38.dp),horizontalArrangement=Arrangement.spacedBy(3.dp)){
                         Row(Modifier.width(170.dp)){
-                            IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},enabled=!saving,modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
+                            IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
                             Box(Modifier.weight(1f)){GuideButton(c.name,modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
                         }
                         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().background(TvPalette.Track,RoundedCornerShape(6.dp))){
@@ -215,7 +244,7 @@ class GuideUiState {
                         }
                     }
                 }
-                if(filtered.isEmpty())item{Text("No channels in this view. Edit the group to add channels.",Modifier.padding(20.dp))}
+                if(filtered.isEmpty())item{Text(if(query.isNotEmpty())"No channels match your search. Open Search to change or clear it." else "No channels in this view. Edit the group to add channels.",Modifier.padding(20.dp))}
             }
             Text("${filtered.size} channels  ·  ↑↓ Browse  ·  ←→ Timeline  ·  OK Watch",color=TvPalette.Muted,style=MaterialTheme.typography.labelSmall,modifier=Modifier.padding(top=6.dp))
             if(state.refreshMessage.value.isNotEmpty())Text(state.refreshMessage.value,style=MaterialTheme.typography.bodySmall)
@@ -228,7 +257,7 @@ class GuideUiState {
         val keyboard=LocalSoftwareKeyboardController.current
         AlertDialog(onDismissRequest={searching=false},title={Text("Search channels")},text={
             OutlinedTextField(searchDraft,{searchDraft=it},singleLine=true,label={Text("Channel name")},modifier=Modifier.fillMaxWidth().focusRequester(searchFocus))
-        },confirmButton={Button(onClick={query=searchDraft;keyboard?.hide();searching=false;scope.launch{state.channelScroll.scrollToItem(0)}}){Text("Search")}},dismissButton={TextButton(onClick={keyboard?.hide();searching=false}){Text("Cancel")}})
+        },confirmButton={Button(onClick={query=searchDraft;keyboard?.hide();searching=false;scope.launch{state.channelScroll.scrollToItem(0)}}){Text("Search")}},dismissButton={Row{if(query.isNotEmpty())TextButton(onClick={query="";searchDraft="";keyboard?.hide();searching=false;scope.launch{state.channelScroll.scrollToItem(0)}}){Text("Clear search")};TextButton(onClick={keyboard?.hide();searching=false}){Text("Cancel")}}})
         LaunchedEffect(Unit){searchFocus.requestFocus();keyboard?.show()}
     }
     if(arranging){
