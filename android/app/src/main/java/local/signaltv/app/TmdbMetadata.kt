@@ -14,8 +14,9 @@ import java.net.URL
 const val TMDB_NOTICE="This product uses the TMDB API but is not endorsed or certified by TMDB."
 class TmdbNotFound:IllegalStateException("TMDB item not found")
 suspend fun tmdbRequest(token:String,path:String):JSONObject=withContext(Dispatchers.IO){
- val c=URL("https://api.themoviedb.org/3$path").openConnection() as HttpURLConnection
- try{c.instanceFollowRedirects=false;c.connectTimeout=8000;c.readTimeout=8000;c.setRequestProperty("Authorization","Bearer $token")
+ val endpoint="https://api.themoviedb.org/3$path"+(if(isTmdbApiKey(token))(if(path.contains("?"))"&" else "?")+"api_key="+token else "")
+ val c=URL(endpoint).openConnection() as HttpURLConnection
+ try{c.instanceFollowRedirects=false;c.connectTimeout=8000;c.readTimeout=8000;if(!isTmdbApiKey(token))c.setRequestProperty("Authorization","Bearer $token")
   val code=c.responseCode;if(code==404)throw TmdbNotFound();check(code==200){if(code==401||code==403)"TMDB rejected the token" else if(code==429)"TMDB rate limit; try again later" else "TMDB unavailable"}
   val bytes=c.inputStream.use{it.readBytesLimited(2*1024*1024)};JSONObject(bytes.toString(Charsets.UTF_8))
  }catch(e:CancellationException){throw e}catch(e:IllegalStateException){throw e}catch(_:Exception){throw IllegalStateException("TMDB connection failed; provider guide retained")}finally{c.disconnect()}

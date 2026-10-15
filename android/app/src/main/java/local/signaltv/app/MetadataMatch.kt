@@ -32,3 +32,5 @@ fun chooseMetadata(q:MetadataQuery,results:List<MetadataCandidate>,pages:Int):Me
 fun safeMetadataArtwork(value:String)=Regex("https://image\\.tmdb\\.org/t/p/(w342|w780)/[A-Za-z0-9_-]+\\.(jpg|png)").matches(value)
 
 fun explicitEpisode(season:String?,episode:String?):Pair<Int,Int>? {val s=season?.toIntOrNull()?:return null;val e=episode?.toIntOrNull()?:return null;return if(s in 0..1000 && e in 1..10000)s to e else null}
+
+fun isTmdbApiKey(value:String)=Regex("[a-fA-F0-9]{32}").matches(value)

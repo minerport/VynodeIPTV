@@ -27,7 +27,13 @@ import org.json.JSONObject
  AlertDialog(onDismissRequest={if(!busy)dismiss()},title={Text("Metadata · TMDB")},text={Column(Modifier.heightIn(max=350.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)){
   if(server)Text("Enrichment comes from your IPTV server. Manage its TMDB connection in the server WebUI → Server settings → Metadata.")else{
    Text("Optional movie and series artwork, descriptions and cast. Programme titles are sent to TMDB. Provider credentials are never sent.")
-   TvTextInput(token,{token=it},label={Text("API Read Access Token")},placeholder={Text(if(configured)"Leave blank to keep saved token" else "Enter token from TMDB API settings")},visualTransformation=PasswordVisualTransformation())
+   TvTextInput(token,{token=it},label={Text("API key or Read Access Token")},placeholder={Text(if(configured)"Leave blank to keep saved token" else "Use the shorter API key from TMDB settings")},visualTransformation=PasswordVisualTransformation())
+   TextButton(enabled=!busy,onClick={
+    val clipboard=context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+    val pasted=clipboard.primaryClip?.takeIf{it.itemCount>0}?.getItemAt(0)?.text?.toString()?.trim().orEmpty()
+    if(pasted.isBlank())status="Clipboard is empty on this device" else if(pasted.length>4096||pasted.contains('\n')||pasted.contains('\r'))status="Clipboard does not contain a valid key" else {token=pasted;status="Key pasted · choose Test & save"}
+   }){Text("Paste from clipboard")}
+   Text("The shorter API Key (v3 auth) works too. In companion mode, configure TMDB once in your server WebUI instead.",fontSize=12.sp)
    Row{Checkbox(enabled,{enabled=it},enabled=!busy);Text("Enable enrichment",Modifier.padding(top=12.dp))}
    Row{Checkbox(background,{background=it},enabled=!busy);Text("Cache upcoming 24-hour guide",Modifier.padding(top=12.dp))}
    Text("Get your token at themoviedb.org/settings/api",fontSize=12.sp)
@@ -36,7 +42,7 @@ import org.json.JSONObject
   Text("Credits",style=MaterialTheme.typography.titleSmall)
   Image(painterResource(R.drawable.tmdb_logo),"TMDB",Modifier.width(70.dp).height(51.dp))
   Text(TMDB_NOTICE,fontSize=11.sp)
- }},confirmButton={if(server)TextButton(onClick=dismiss){Text("Close")}else Button(enabled=!busy,onClick={busy=true;scope.launch{try{val value=token.trim().ifBlank{withContext(Dispatchers.IO){secure.tmdb().optString("token")}};require(!enabled||value.isNotBlank()){"Enter a TMDB API Read Access Token"};require(value.length<=4096&&!value.contains('\n')&&!value.contains('\r')){"Invalid TMDB token"};service.save(value,enabled,background);token="";configured=value.isNotBlank();status="Settings saved"}catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:"Could not save connection"}finally{busy=false}}}){Text(if(busy)"Checking…" else "Test & save")}},dismissButton={Row{if(!server)TextButton(enabled=!busy,onClick={busy=true;scope.launch{try{service.disconnect();token="";configured=false;enabled=false;status="Disconnected"}finally{busy=false}}}){Text("Disconnect")};TextButton(enabled=!busy,onClick=dismiss){Text("Close")}}})
+ }},confirmButton={if(server)TextButton(onClick=dismiss){Text("Close")}else Button(enabled=!busy,onClick={busy=true;scope.launch{try{val value=token.trim().ifBlank{withContext(Dispatchers.IO){secure.tmdb().optString("token")}};require(!enabled||value.isNotBlank()){"Enter a TMDB API key or Read Access Token"};require(value.length<=4096&&!value.contains('\n')&&!value.contains('\r')){"Invalid TMDB token"};service.save(value,enabled,background);token="";configured=value.isNotBlank();status="Settings saved"}catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:"Could not save connection"}finally{busy=false}}}){Text(if(busy)"Checking…" else "Test & save")}},dismissButton={Row{if(!server)TextButton(enabled=!busy,onClick={busy=true;scope.launch{try{service.disconnect();token="";configured=false;enabled=false;status="Disconnected"}finally{busy=false}}}){Text("Disconnect")};TextButton(enabled=!busy,onClick=dismiss){Text("Close")}}})
 }
 
 @Composable fun rememberProgrammeMetadata(profile:Profile?,p:Programme?):JSONObject?{

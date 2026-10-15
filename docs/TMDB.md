@@ -4,13 +4,13 @@ VynodeIPTV can enrich visible guide entries and selected/current movie and serie
 
 ## Connect
 
-Get your **API Read Access Token** from https://www.themoviedb.org/settings/api. This is the bearer read token, not your account password or the shorter v3 API key. Agree to TMDB's applicable terms when obtaining your token. No token is distributed with VynodeIPTV.
+Get your shorter **API Key (v3 auth)** or **API Read Access Token** from https://www.themoviedb.org/settings/api. Both credential types are accepted; your TMDB account password is not. Android has an explicit Paste button for text on that device clipboard. A phone clipboard is not automatically shared with a TV. Agree to TMDB's applicable terms when obtaining your token. No token is distributed with VynodeIPTV.
 
 - **Server/browser:** Server settings → Metadata · TMDB. Enter the token, enable enrichment, and choose Test & save. The token is verified with TMDB's configuration endpoint before enabled settings are saved. Leave the token field blank to retain the saved value. Disconnect removes the saved credential and metadata cache.
 - **Android standalone:** Connection settings → Metadata · TMDB. Enter and enable a local token. It is encrypted using Android Keystore. This setting is independent of provider selection and normal logout.
 - **Android companion:** metadata comes from the linked IPTV server; configure its connection through the server WebUI. Paired devices cannot read or modify the server's TMDB token. Older servers without these endpoints simply show the provider guide.
 
-Server credentials are retained in encrypted `/config/state.enc`; API responses never return the token. Requests send it only in the Authorization header to the fixed HTTPS TMDB API, with redirects disabled. Visible, selected and upcoming programme titles are sent to TMDB for searching; provider addresses, usernames and passwords are not. Artwork is fetched from TMDB's image CDN.
+Server credentials are retained in encrypted `/config/state.enc`; API responses never return the token. Requests send a long token in the Authorization header, or a 32-character hexadecimal v3 key as the api_key query parameter, only to the fixed HTTPS TMDB API with redirects disabled. Request URLs and credentials are not logged. Visible, selected and upcoming programme titles are sent to TMDB for searching; provider addresses, usernames and passwords are not. Artwork is fetched from TMDB's image CDN.
 
 ## Matching and caching
 

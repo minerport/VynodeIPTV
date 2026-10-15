@@ -211,7 +211,13 @@ func (t *tmdbService) get(ctx context.Context, token, path string, out any) erro
 	if e != nil {
 		return errors.New("Invalid metadata request")
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	if regexp.MustCompile(`^[a-fA-F0-9]{32}$`).MatchString(token) {
+		q := req.URL.Query()
+		q.Set("api_key", token)
+		req.URL.RawQuery = q.Encode()
+	} else {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	res, e := t.client.Do(req)
 	if e != nil {
 		return errors.New("TMDB unavailable; provider guide retained")
@@ -423,7 +429,7 @@ func (a *App) tmdbRoutes(m *http.ServeMux) {
 			input.Token = a.store.snapshot().TMDB.Token
 		}
 		if input.Enabled && input.Token == "" {
-			fail(w, 400, "Enter your TMDB API Read Access Token")
+			fail(w, 400, "Enter your TMDB API key or Read Access Token")
 			return
 		}
 		if input.Enabled {

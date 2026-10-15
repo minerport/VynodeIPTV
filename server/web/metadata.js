@@ -49,7 +49,7 @@ export function metadataPanel(api,host){
 }
 export function metadataSettings(api,host,onChange,message){
  const section=node('section');section.className='panel';section.append(node('h2','Metadata · TMDB'),node('p','Optional movie and series artwork, descriptions and cast. Programme titles are sent to TMDB; your provider credentials are never sent.'));
- const form=node('form'),label=node('label','API Read Access Token'),input=node('input');input.type='password';input.autocomplete='new-password';input.maxLength=4096;input.placeholder='Leave blank to keep saved token';label.append(input);
+ const form=node('form'),label=node('label','API key or Read Access Token'),input=node('input');input.type='password';input.autocomplete='new-password';input.maxLength=4096;input.placeholder='Leave blank to keep saved token';label.append(input);
  const toggle=node('input');toggle.type='checkbox';const enabled=node('label','Enable guide enrichment');enabled.className='check';enabled.prepend(toggle);
  const background=node('input');background.type='checkbox';const warm=node('label','Cache upcoming 24-hour guide in the background');warm.className='check';warm.prepend(background);
  const save=node('button','Test & save'),disconnect=node('button','Disconnect');disconnect.type='button';disconnect.className='secondary';const status=node('p');status.setAttribute('role','status');

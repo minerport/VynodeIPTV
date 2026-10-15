@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -169,5 +170,22 @@ func TestBrowserArtworkPolicy(t *testing.T) {
 	}
 	if !strings.Contains(policy, "connect-src 'self';") || !strings.Contains(policy, "script-src 'self';") {
 		t.Fatal("unrelated security policy relaxed")
+	}
+}
+
+func TestTMDBShortKeyTransport(t *testing.T) {
+	app := testApp(t)
+	key := strings.Repeat("a", 32)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("api_key") != key || r.Header.Get("Authorization") != "" || r.URL.Query().Get("language") != "en-US" {
+			t.Error("wrong API key transport")
+		}
+		w.Write([]byte(`{}`))
+	}))
+	defer upstream.Close()
+	app.tmdb.base = upstream.URL
+	var out map[string]any
+	if err := app.tmdb.get(context.Background(), key, "/configuration?language=en-US", &out); err != nil {
+		t.Fatal(err)
 	}
 }
