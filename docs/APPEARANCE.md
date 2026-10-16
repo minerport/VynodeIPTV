@@ -32,13 +32,13 @@ Save up to 20 named presets on the device. Export/import uses a versioned JSON f
 
 ## Storage and performance
 
-Android uses app preferences independent of provider and mode. Browser preferences belong to that browser/origin; another browser or private browsing session has separate preferences. Clearing app/browser data removes local appearance settings. Optional shared-theme loading is available in 0.16.0, as described below.
+Android uses app preferences independent of provider and mode. Browser preferences belong to that browser/origin; another browser or private browsing session has separate preferences. Clearing app/browser data removes local appearance settings. Optional shared-theme loading is available in 0.16.1, as described below.
 
 Existing guide-density and artwork preferences are migrated when appearance has not yet been saved. Appearance changes use the existing player and guide state. Fonts are local, palettes share a catalog, and guide virtualization uses the selected row height. Main palette text/background and filled-focus color pairs are checked for at least 4.5:1 contrast; this is not a complete accessibility certification.
 
 Automatic artwork-derived palettes, arbitrary custom colors and individual user-profile theme synchronization remain future work.
 
-## Discover home (0.16.0)
+## Discover home (0.16.1)
 
 Open Discover from the browser navigation or Android Guide menu. It contains recently watched channels, favorites, On now, upcoming favorites and recordings. Programme artwork uses the existing TMDB configuration and falls back to readable text when no match is available. Recording cards open the existing recording library; future programme cards open details or the guide rather than tuning a future broadcast.
 
@@ -48,7 +48,7 @@ Highlights sample at most 12 channels, prioritizing favorites, then recents. Thi
 
 ## Share appearance through your server
 
-1. Update the server and Android client to 0.16.0 or newer.
+1. Update the server and Android client to 0.16.1 or newer.
 2. In browser Appearance Studio, configure a draft and choose **Publish shared theme**. This requires the server administrator and confirmation. Publishing does not force another device to change immediately.
 3. A linked Android device can choose **Load shared theme** to preview/apply it once, or enable **Load server theme on connection**. The browser has an equivalent sign-in option. This option is off by default.
 4. Enabled devices fetch the shared theme on connection/app launch; browser clients fetch on sign-in/page reload. There is no background polling or surprise theme change during a viewing session. If the server is unavailable, the last usable appearance remains.

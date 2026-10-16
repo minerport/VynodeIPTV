@@ -213,7 +213,7 @@ class MainActivity: ComponentActivity() {
         }})
     }
     @Composable private fun App(){
-        LaunchedEffect(profile){profile?.let{Appearance.connect(it);guideState.home.value=Appearance.current.startup=="home";if(Appearance.current.startup=="wall"){wallMode=wallMode.enter();multiView=true;saveScene()}}}
+        LaunchedEffect(profile){profile?.let{guideState.home.value=Appearance.current.startup=="home";if(Appearance.current.startup=="wall"){wallMode=wallMode.enter();multiView=true;saveScene()};Appearance.connect(it)}}
         LaunchedEffect(profile){profile?.let{TmdbMetadata.get(this@MainActivity).warm(applicationContext,it)}}
         if(tmdbOpen)TmdbSettings(profile){tmdbOpen=false;metadataRevision++}
         LaunchedEffect(profile){val p=profile?:return@LaunchedEffect;val cache=CatalogCache(this@MainActivity,p);var stamp=cache.modified();while(true){delay(60000);if(stamp!=cache.modified()){val entries=withContext(Dispatchers.IO){cache.load()};if(profile==p&&entries.isNotEmpty())channels=entries;stamp=cache.modified()}}}

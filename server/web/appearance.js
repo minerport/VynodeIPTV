@@ -41,6 +41,6 @@ export function appearanceStudio({onChange=()=>{},message=()=>{},api}){
  dialog.append(el('p','Glass is applied to menus and panels. Guide cells remain solid for readability. Shared themes load at sign-in only when enabled. Local startup preference is retained.'));
  }
  }
- async function connect(){await ready;if(!api||!catalog)return;try{const shared=await api('/appearance/shared');sharedRevision=shared.revision;if(read('vynode-follow-appearance')===true&&shared.revision>0){apply({...shared.settings,startup:settings.startup});write('vynode-appearance-v1',settings)}}catch{}}
+ async function connect(){await ready;if(!api||!catalog)return;try{const initial=JSON.stringify(settings);const shared=await api('/appearance/shared');sharedRevision=shared.revision;if(read('vynode-follow-appearance')===true&&shared.revision>0&&JSON.stringify(settings)===initial){apply({...shared.settings,startup:settings.startup});write('vynode-appearance-v1',settings)}}catch{}}
  return {open,ready,connect,current:()=>({...settings})};
 }

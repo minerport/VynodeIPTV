@@ -17,7 +17,7 @@ object Appearance {
  fun follows(p:Profile)=prefs.getBoolean("follow:"+p.accountKey(),false)
  fun follow(p:Profile,value:Boolean){prefs.edit().putBoolean("follow:"+p.accountKey(),value).apply()}
  suspend fun shared(p:Profile):AppearanceSettings {val j=JSONObject(request(p.base+"/api/v1/appearance/shared",p.token));require(j.optLong("revision")>0){"No shared theme has been published"};return decode(j.getJSONObject("settings")).copy(startup=current.startup)}
- suspend fun connect(p:Profile){if(p.mode=="server"&&follows(p))try{save(shared(p))}catch(e:kotlinx.coroutines.CancellationException){throw e}catch(_:Exception){/* Retain the last usable appearance offline. */}}
+ suspend fun connect(p:Profile){if(p.mode=="server"&&follows(p))try{val initial=current;val next=shared(p);if(follows(p)&&current==initial)save(next)}catch(e:kotlinx.coroutines.CancellationException){throw e}catch(_:Exception){/* Retain the last usable appearance offline. */}}
  fun preview(s:AppearanceSettings){current=s.normalized()}
  fun save(s:AppearanceSettings){val value=s.normalized();check(prefs.edit().putString("settings",encode(value).toString()).commit()){"Could not save appearance"};current=value}
  fun color(key:String,s:AppearanceSettings=current):Color {
