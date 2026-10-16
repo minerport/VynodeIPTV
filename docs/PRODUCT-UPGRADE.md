@@ -14,7 +14,7 @@ Implemented in 0.14.0:
 
 ## Milestone 2a: channel identity and actions
 
-Implemented in 0.14.1:
+Implemented in 0.14.2:
 - Provider channel logos through server catalog, Android standalone import and offline Android catalog cache. HTTPS, credential-free URLs only; missing/rejected artwork leaves the channel name visible. Android limits logo requests to two, image input to 512 KiB and decoded memory cache to 4 MiB.
 - Android hold OK/Menu or touch-hold opens Watch live, Favorite, Details and Record/Schedule actions without tuning on the initial key press. Past broadcasts do not offer recording. These actions use the existing local or server recording/account paths.
 - Browser channel/programme right-click, touch hold and Shift+F10/context-menu key open the same compact actions. Normal browser programme click still opens details.

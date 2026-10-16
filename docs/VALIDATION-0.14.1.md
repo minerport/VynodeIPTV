@@ -11,3 +11,5 @@ This advances guide interaction and channel identity. It does not complete the e
 - Emulator checks use synthetic content. Physical Shield remotes, real provider logo/CDN compatibility, standalone runtime/device acceptance, TalkBack and high font-scale acceptance remain unverified. Both Android repository modes import logos and share the action UI; no provider accounts or production Unraid configuration were used in testing.
 
 HTTPS logos without query strings/embedded credentials are supported. Android image downloads do not follow redirects, use two concurrent requests, cap encoded images at 512 KiB, sample decoded dimensions to 128px and maintain a 4 MiB memory cache. Browser artwork loads directly under the HTTPS image CSP. Missing/rejected images fall back to channel names. Existing programme metadata and broadcast timing remain unchanged.
+
+Release candidate was not published: CI stopped on an outdated CSP assertion in scripts/verify-server.mjs. Superseded by 0.14.2; see VALIDATION-0.14.2.md.
