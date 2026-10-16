@@ -10,8 +10,8 @@
   <ExtraSearchTerms>iptv xtream epg television android shield video wall</ExtraSearchTerms>
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
-  <Date>2026-10-14</Date>
-  <Changes>0.15.0: Appearance Studio with three layouts, seven palettes, lightweight glass surfaces, bundled fonts, text scaling and named presets. Preview, apply, keep or automatically revert. Appearance is saved on each device independently of provider accounts.</Changes>
+  <Date>2026-10-16</Date>
+  <Changes>0.16.0: Discover home with recent channels, favorites, programme highlights and recordings. Side Preview and Wall First layouts. Choose Guide, Home or Wall at startup. Optional server-published appearance loads on connection, with local fallback.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

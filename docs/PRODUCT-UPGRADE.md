@@ -38,3 +38,7 @@ Appearance Studio 0.15.0 provides an additional personalization foundation: thre
 ## Release gates
 
 Do not label a milestone complete based solely on compilation. Run relevant unit/security tests, browser flows, synthetic media tests and device checks. Report physical-device checks separately. Never migrate or discard saved provider accounts, favourites, groups or recordings as part of a layout change. The Android app remains independently usable without a server.
+
+## Appearance and discovery 0.16.0
+
+Discover home, Side Preview, Wall First and independent Guide/Home/Wall startup choices are implemented in both clients. Local highlights use existing guide, favorite, recent and recording data. Optional administrator-published appearance loads on client connection, with revision-checked writes and local offline fallback. This is not user-profile synchronization or a full recommendation index. See [Appearance Studio](APPEARANCE.md).

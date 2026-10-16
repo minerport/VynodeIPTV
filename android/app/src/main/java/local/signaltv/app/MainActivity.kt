@@ -187,7 +187,7 @@ class MainActivity: ComponentActivity() {
                                 }.border(if(focused)2.dp else 0.dp,if(focused)Color.White else Color.Transparent).semantics{
                                     contentDescription=slots[index]?.let{"${it.name}, select for fullscreen. Back opens wall controls."}?:"Choose channel for panel ${index+1}"
                                 }){
-                                    if(slots[index]==null)Text("+ Choose channel",Modifier.align(Alignment.Center))
+                                    if(slots[index]==null)Text("+ Choose channel",Modifier.align(Alignment.Center),color=Color.White)
                                 }
                             }
                         }
@@ -213,6 +213,7 @@ class MainActivity: ComponentActivity() {
         }})
     }
     @Composable private fun App(){
+        LaunchedEffect(profile){profile?.let{Appearance.connect(it);guideState.home.value=Appearance.current.startup=="home";if(Appearance.current.startup=="wall"){wallMode=wallMode.enter();multiView=true;saveScene()}}}
         LaunchedEffect(profile){profile?.let{TmdbMetadata.get(this@MainActivity).warm(applicationContext,it)}}
         if(tmdbOpen)TmdbSettings(profile){tmdbOpen=false;metadataRevision++}
         LaunchedEffect(profile){val p=profile?:return@LaunchedEffect;val cache=CatalogCache(this@MainActivity,p);var stamp=cache.modified();while(true){delay(60000);if(stamp!=cache.modified()){val entries=withContext(Dispatchers.IO){cache.load()};if(profile==p&&entries.isNotEmpty())channels=entries;stamp=cache.modified()}}}
@@ -252,14 +253,16 @@ class MainActivity: ComponentActivity() {
         if(multiView){MultiView();return}
         var settings by remember{mutableStateOf(false)}
         var appearanceOpen by remember{mutableStateOf(false)}
-        if(appearanceOpen)AppearanceStudio{appearanceOpen=false}
+        if(appearanceOpen)AppearanceStudio(profile){appearanceOpen=false}
         Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(TvPalette.Glow,TvPalette.Background))).padding(horizontal=24.dp,vertical=12.dp)){
             if(profile==null)Text("VYNODE IPTV · $status",style=MaterialTheme.typography.titleLarge)
             if(unlockError){Text(status);Button(onClick={restoreConnection()}){Text("Retry")};Button(onClick={secure.clear();unlockError=false;status="Choose how to connect"}){Text("Reset saved login")};return@Column}
             if(profile==null){Setup();return@Column}
             if(busy && channels.isEmpty())LinearProgressIndicator(Modifier.fillMaxWidth())
-            repository?.let { repo -> GuideScreen(channels,repo,guideState,onWall={wallMode=wallMode.enter();multiView=true;saveScene();ensureStreams()},onSettings={settings=true},onRefresh={refreshChannels()},onRefreshEpg={refreshEpg()},preview={height->
-                Row(Modifier.fillMaxWidth().padding(bottom=8.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)){
+            repository?.let { repo ->
+             if(guideState.home.value)DiscoverScreen(channels,repo,guideState,guide={guideState.home.value=false},wall={guideState.home.value=false;wallMode=wallMode.enter();multiView=true;saveScene();ensureStreams()},settings={appearanceOpen=true},play={guideState.home.value=false;play(it)})
+             else GuideScreen(channels,repo,guideState,onHome={guideState.home.value=true},onWall={wallMode=wallMode.enter();multiView=true;saveScene();ensureStreams()},onSettings={settings=true},onRefresh={refreshChannels()},onRefreshEpg={refreshEpg()},preview={height->
+                PreviewLayout(Appearance.current.layout=="side",Modifier.fillMaxWidth().padding(bottom=8.dp)){
                     Column{
                         Box(Modifier.height(height).aspectRatio(16f/9f).clip(RoundedCornerShape(Appearance.current.radius.dp)).background(Color.Black).border(1.dp,TvPalette.Line,RoundedCornerShape(Appearance.current.radius.dp))){
                             if(c!=null)AndroidView(factory={PlayerView(it).apply{bindPlaybackView(this,engine);keepScreenOn=true;useController=false}},update={bindPlaybackView(it,engine)},onRelease={bindPlaybackView(it,null)},modifier=Modifier.fillMaxSize())
@@ -269,11 +272,11 @@ class MainActivity: ComponentActivity() {
                     }
                     val featuredChannel=guideState.focusedChannel.value?:c
                     val programme=guideState.focusedProgramme.value?:currentProgramme(guideState.cache[featuredChannel?.id]?.second.orEmpty(),System.currentTimeMillis())
-                    Column(Modifier.weight(1f)){
+                    Column{
                         var details by remember{mutableStateOf(false)}
                         if(details)AlertDialog(onDismissRequest={details=false},text={Column(Modifier.heightIn(max=340.dp).verticalScroll(rememberScrollState())){ProgrammeFeature(featuredChannel,programme,c,Modifier.fillMaxWidth(),profile)}},confirmButton={TextButton(onClick={details=false}){Text("Close")}})
                         Row{
-                            key(metadataRevision){ProgrammeFeature(featuredChannel,programme,c,Modifier.weight(1f).height(height),profile,compact=true)}
+                            if(Appearance.current.layout!="wall")key(metadataRevision){ProgrammeFeature(featuredChannel,programme,c,Modifier.weight(1f).height(height),profile,compact=true)}else Spacer(Modifier.weight(1f))
                             Box{
                                 var menu by remember{mutableStateOf(false)}
                                 IconButton(onClick={menu=true}){Text("⋮",style=MaterialTheme.typography.headlineSmall)}

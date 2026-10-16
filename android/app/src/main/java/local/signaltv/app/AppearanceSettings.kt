@@ -2,10 +2,11 @@ package local.signaltv.app
 
 data class AppearanceSettings(
  val layout:String="classic",val palette:String="cinema",val surface:String="matte",val font:String="standard",
- val scale:Float=1f,val density:String="compact",val corners:String="soft",val borders:String="clear",val focus:String="outline",val artwork:String="all"
+ val scale:Float=1f,val density:String="compact",val corners:String="soft",val borders:String="clear",val focus:String="outline",val artwork:String="all",val startup:String="guide"
 ){
  fun normalized()=copy(
-  layout=layout.takeIf{it in listOf("classic","guide","cinema")}?:"classic",
+  startup=startup.takeIf{it in listOf("guide","home","wall")}?:"guide",
+  layout=layout.takeIf{it in listOf("classic","guide","cinema","side","wall")}?:"classic",
   palette=palette.takeIf{it in listOf("cinema","obsidian","arctic","midnight","ember","pearl","contrast")}?:"cinema",
   surface=surface.takeIf{it in listOf("matte","frosted","smoked")}?:"matte",
   font=font.takeIf{it in listOf("standard","modern","readable")}?:"standard",

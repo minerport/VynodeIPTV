@@ -19,11 +19,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.*
 
+private fun appearanceLabel(value:String,label:String):String = when {label=="Layout"->mapOf("classic" to "Classic","guide" to "Guide First","cinema" to "Cinema","side" to "Side Preview","wall" to "Wall First")[value]?:value;label=="Font"->mapOf("standard" to "System","modern" to "Inter","readable" to "Atkinson Hyperlegible")[value]?:value;else->value.replaceFirstChar{it.uppercase()}}
 @Composable private fun AppearanceChoice(label:String,value:String,values:List<String>,change:(String)->Unit){
  var open by remember{mutableStateOf(false)}
  Box(Modifier.fillMaxWidth()){
-  OutlinedButton(onClick={open=true},modifier=Modifier.fillMaxWidth()){Text("$label: ${value.replaceFirstChar{it.uppercase()}}",Modifier.weight(1f));Text("⌄")}
-  DropdownMenu(expanded=open,onDismissRequest={open=false}){values.forEach{v->DropdownMenuItem(text={Text((if(v==value)"✓ " else "")+v.replaceFirstChar{it.uppercase()})},onClick={open=false;change(v)})}}
+  OutlinedButton(onClick={open=true},modifier=Modifier.fillMaxWidth()){Text("$label: ${appearanceLabel(value,label)}",Modifier.weight(1f));Text("⌄")}
+  DropdownMenu(expanded=open,onDismissRequest={open=false}){values.forEach{v->DropdownMenuItem(text={Text((if(v==value)"✓ " else "")+appearanceLabel(v,label))},onClick={open=false;change(v)})}}
  }
 }
 @Composable private fun AppearancePreview(s:AppearanceSettings){
@@ -39,7 +40,7 @@ import kotlinx.coroutines.*
   }}
  }
 }
-@Composable fun AppearanceStudio(dismiss:()->Unit){
+@Composable fun AppearanceStudio(profile:Profile?=null,dismiss:()->Unit){
  val context=LocalContext.current;val scope=rememberCoroutineScope()
  var draft by remember{mutableStateOf(Appearance.current)};var original by remember{mutableStateOf(Appearance.current)}
  var pending by remember{mutableStateOf(false)};var remaining by remember{mutableIntStateOf(15)}
@@ -60,7 +61,8 @@ import kotlinx.coroutines.*
      LazyColumn(Modifier.weight(1f,false).heightIn(min=80.dp),verticalArrangement=Arrangement.spacedBy(2.dp)){
       item{Text("Complete presets",style=MaterialTheme.typography.titleSmall)}
       item{AppearanceChoice("Preset","choose",Appearance.presets().map{it.first}){label->draft=Appearance.presets().first{it.first==label}.second}}
-      item{AppearanceChoice("Layout",draft.layout,listOf("classic","guide","cinema")){draft=draft.copy(layout=it)}}
+      item{AppearanceChoice("Layout",draft.layout,listOf("classic","guide","cinema","side","wall")){draft=draft.copy(layout=it)}}
+      item{AppearanceChoice("Open on startup",draft.startup,listOf("guide","home","wall")){draft=draft.copy(startup=it)}}
       item{AppearanceChoice("Colors",draft.palette,listOf("cinema","obsidian","arctic","midnight","ember","pearl","contrast")){draft=draft.copy(palette=it)}}
       item{AppearanceChoice("Surface",draft.surface,listOf("matte","frosted","smoked")){draft=draft.copy(surface=it)}}
       item{AppearanceChoice("Font",draft.font,listOf("standard","modern","readable")){draft=draft.copy(font=it)}}
@@ -70,12 +72,17 @@ import kotlinx.coroutines.*
       item{AppearanceChoice("Borders",draft.borders,listOf("clear","strong")){draft=draft.copy(borders=it)}}
       item{AppearanceChoice("Focus",draft.focus,listOf("outline","fill","glow")){draft=draft.copy(focus=it)}}
       item{AppearanceChoice("Artwork",draft.artwork,listOf("all","header","off")){draft=draft.copy(artwork=it)}}
+      item{if(profile?.mode=="server")Column{
+       TextButton(onClick={scope.launch{try{draft=Appearance.shared(profile).copy(startup=draft.startup);error="Shared theme loaded. Apply to use it."}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"Shared theme unavailable"}}}){Text("Load shared theme")}
+       var follow by remember(profile){mutableStateOf(Appearance.follows(profile))}
+       Row{Checkbox(follow,{follow=it;Appearance.follow(profile,it)});Text("Load server theme on connection. Startup stays local.",Modifier.weight(1f))}
+      }}
       item{Text("Saved on this device, independent of your provider. Glass uses a lightweight shaded surface on Android; playback is never blurred.",style=MaterialTheme.typography.bodySmall)}
       item{TvTextInput(name,{name=it.take(40)},label={Text("Preset name")},singleLine=true)}
       item{TextButton(onClick={try{Appearance.savePreset(name,draft);revision++;error="Preset saved"}catch(e:Exception){error=e.message?:"Could not save preset"}}){Text("Save named preset")}}
       item{val presets=remember(revision){Appearance.saved()};if(presets.isNotEmpty())AppearanceChoice("Saved presets","choose",presets.map{it.first}){label->draft=presets.first{it.first==label}.second;name=label}}
       item{if(name.isNotBlank()&&Appearance.saved().any{it.first==name})TextButton(onClick={try{Appearance.deletePreset(name);revision++;name=""}catch(e:Exception){error=e.message?:"Could not delete preset"}}){Text("Delete named preset")}}
-      item{Row{TextButton(onClick={export.launch("vynode-appearance.json")}){Text("Export")};TextButton(onClick={importLauncher.launch(arrayOf("application/json","text/plain"))}){Text("Import")};TextButton(onClick={draft=AppearanceSettings()}){Text("Reset defaults")}}}
+      item{Row{TextButton(onClick={try{export.launch("vynode-appearance.json")}catch(_:Exception){error="Install a document provider to export presets"}}){Text("Export")};TextButton(onClick={try{importLauncher.launch(arrayOf("application/json","text/plain"))}catch(_:Exception){error="Install a document provider to import presets"}}){Text("Import")};TextButton(onClick={draft=AppearanceSettings()}){Text("Reset defaults")}}}
      }
      Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={original=Appearance.current;Appearance.preview(draft);pending=true}){Text("Apply")};TextButton(onClick={close()}){Text("Cancel")}}
     }

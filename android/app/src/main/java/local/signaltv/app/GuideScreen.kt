@@ -53,6 +53,7 @@ private suspend fun requestAttachedFocus(requester:FocusRequester){
 }
 
 class GuideUiState {
+    val home=mutableStateOf(false)
     val refreshMessage=mutableStateOf("")
     val refreshRevision=mutableIntStateOf(0)
     val returnChannel=mutableStateOf<String?>(null)
@@ -70,7 +71,7 @@ class GuideUiState {
     val groupScroll=LazyListState()
 }
 
-@Composable fun GuideScreen(channels: List<Channel>, repo: Repository, state: GuideUiState, preview: @Composable (androidx.compose.ui.unit.Dp)->Unit = {}, onWall:()->Unit={}, onSettings:()->Unit={}, onRefresh:()->Unit={}, onRefreshEpg:()->Unit={}, play: (Channel)->Unit) {
+@Composable fun GuideScreen(channels: List<Channel>, repo: Repository, state: GuideUiState, preview: @Composable (androidx.compose.ui.unit.Dp)->Unit = {}, onHome:()->Unit={},onWall:()->Unit={}, onSettings:()->Unit={}, onRefresh:()->Unit={}, onRefreshEpg:()->Unit={}, play: (Channel)->Unit) {
     val context=LocalContext.current
     val focusManager=LocalFocusManager.current
     val store=remember(repo.profile){Groups(context,repo.profile)}
@@ -210,15 +211,20 @@ class GuideUiState {
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()){
-          val previewHeight=when(Appearance.current.layout){"guide"->64.dp;"cinema"->(maxHeight*.40f).coerceIn(156.dp,210.dp);else->(maxHeight*.29f).coerceIn(120.dp,156.dp)}
-          Column(Modifier.fillMaxSize()){
-            preview(previewHeight)
+          val previewHeight=when(Appearance.current.layout){"guide"->64.dp;"wall"->(maxHeight*.55f).coerceIn(180.dp,270.dp);"cinema"->(maxHeight*.40f).coerceIn(156.dp,210.dp);else->(maxHeight*.29f).coerceIn(120.dp,156.dp)}
+          val side=Appearance.current.layout=="side"
+          val sideWidth=(maxWidth*.32f).coerceIn(220.dp,300.dp)
+          Row(Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+          if(side)Box(Modifier.width(sideWidth)){preview(120.dp)}
+          Column(Modifier.weight(1f).fillMaxHeight()){
+            if(!side)preview(previewHeight)
             Row(Modifier.fillMaxWidth().height(36.dp),verticalAlignment=Alignment.CenterVertically){
                 Row(Modifier.width(170.dp),verticalAlignment=Alignment.CenterVertically){
                     Box{
                         var menu by remember{mutableStateOf(false)}
                         IconButton(onClick={menu=true},modifier=Modifier.width(36.dp).semantics{contentDescription="Guide menu"}){Text("☰")}
                         DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
+                            DropdownMenuItem(text={Text("Discover home")},onClick={menu=false;onHome()})
                             DropdownMenuItem(text={Text("Search everything")},onClick={menu=false;globalSearch=true})
                             DropdownMenuItem(text={Text("Recent channels")},onClick={menu=false;recentOpen=true})
                             DropdownMenuItem(text={Text("Guide appearance")},onClick={menu=false;appearance=true})
@@ -275,6 +281,7 @@ class GuideUiState {
           }
         }
     }
+    }
     contextTarget?.let{(c,p)->
         AlertDialog(onDismissRequest={closeContext()},title={Text(c.name)},text={Column(Modifier.heightIn(max=320.dp).verticalScroll(rememberScrollState())){
             p?.let{Text(it.title,style=MaterialTheme.typography.titleMedium)}
@@ -300,7 +307,7 @@ class GuideUiState {
         val recent=experience.recent().mapNotNull{id->channels.find{it.id==id}}
         LazyColumn(Modifier.heightIn(max=280.dp)){if(recent.isEmpty())item{Text("Channels you watch will appear here.")};items(recent,key={it.id}){c->TextButton(onClick={recentOpen=false;play(c)}){Text(c.name)}}}
     },confirmButton={TextButton(onClick={recentOpen=false}){Text("Close")}})
-    if(appearance)AppearanceStudio{appearance=false}
+    if(appearance)AppearanceStudio(repo.profile){appearance=false}
     if(searching){
         val searchFocus=remember{FocusRequester()}
         val keyboard=LocalSoftwareKeyboardController.current

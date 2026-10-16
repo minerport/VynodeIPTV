@@ -96,7 +96,8 @@
     "corners": "soft",
     "borders": "clear",
     "focus": "outline",
-    "artwork": "all"
+    "artwork": "all",
+    "startup": "guide"
   },
   "presets": [
     {
@@ -156,6 +157,25 @@
         "density": "large",
         "borders": "strong",
         "scale": 1.15
+      }
+    },
+    {
+      "name": "Side Lounge",
+      "settings": {
+        "layout": "side",
+        "palette": "midnight",
+        "surface": "frosted",
+        "font": "modern"
+      }
+    },
+    {
+      "name": "Wall First",
+      "settings": {
+        "layout": "wall",
+        "palette": "obsidian",
+        "surface": "matte",
+        "font": "modern",
+        "startup": "wall"
       }
     }
   ]

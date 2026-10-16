@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {homeCandidates,upcoming} from '../server/web/home.js';
+test('Discover candidates are bounded and stale channel IDs are ignored',()=>{const channels=Array.from({length:30},(_,i)=>({id:String(i)}));const result=homeCandidates(channels,['4','4','missing'],['1','1']);assert.equal(result.length,12);assert.equal(new Set(result.map(c=>c.id)).size,12);assert.ok(result.some(c=>c.id==='4'));assert.ok(!result.some(c=>c.id==='missing'))});
+test('Upcoming excludes past and distant broadcasts and sorts by start',()=>{const now=Date.now(),p=n=>({start:new Date(now+n).toISOString()});const result=upcoming([p(9000),p(-1),p(90000000),p(1000)],now);assert.deepEqual(result,[p(1000),p(9000)])});
