@@ -24,6 +24,8 @@ This advances workstream 2; it does not complete the other seven workstreams.
 
 ## Remaining approved work
 
+Appearance Studio 0.15.0 provides an additional personalization foundation: three layouts, seven palettes, surfaces, bundled fonts, text scaling and local named presets in both clients. See [Appearance Studio](APPEARANCE.md) for implemented options and deferred appearance work. This does not mark the broader roadmap below complete.
+
 1. Reliability: physical Shield automated/recorded acceptance runs, long-duration soak tests, decoder/network failure scenarios, cross-provider fallback only after explicit mapping, server-unavailable direct fallback with existing saved credentials. Existing byte/frame/audio monitoring, staged player recovery and diagnostics are retained.
 2. TV interaction: broader automated screenshot and D-pad regressions at all densities, font scaling and physical remote/accessibility acceptance. Search, recents and density are the first portion only.
 3. Timeshift: standalone Android bounded disk ring buffer, byte-budget eviction without losing live playback, seek preview, resume after long pauses, and optional provider catch-up. Current server buffer is session-scoped and stops at the configured byte cap rather than silently filling the disk.

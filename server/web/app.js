@@ -1,3 +1,4 @@
+import {appearanceStudio,guideMetrics} from './appearance.js';
 import {safeChannelLogo,bindChannelActions,channelActionMenu} from './channel-actions.js';
 import {timeshiftUI,seekWithinWindow} from './timeshift.js';
 import {discoveryUI,guideDensities} from './discovery.js';
@@ -169,7 +170,7 @@ $('record-now').onclick=()=>{const c=channels.find(c=>c.id===active?.channelId);
 const discovery=discoveryUI({api,channels:()=>channels,tune,programme:(...args)=>dvr.programme(...args),library:()=>dvr.library(),onDensity:name=>{
  rowHeight=guideDensities[name]||62;document.documentElement.style.setProperty('--guide-row-height',(rowHeight-4)+'px');document.documentElement.style.setProperty('--guide-font-size',name==='large'?'18px':name==='compact'?'13px':'15px');resetScroll();renderGuide();scheduleGuide();
 }});
-$('search-everything').onclick=()=>discovery.search();$('recent-channels').onclick=()=>discovery.recent();$('guide-appearance').onclick=()=>discovery.appearance();
+$('search-everything').onclick=()=>discovery.search();$('recent-channels').onclick=()=>discovery.recent();$('guide-appearance').onclick=()=>studio.open();
 try{const name=localStorage.getItem('vynode-density');rowHeight=guideDensities[name]||62;document.documentElement.style.setProperty('--guide-row-height',(rowHeight-4)+'px');document.documentElement.style.setProperty('--guide-font-size',name==='large'?'18px':name==='compact'?'13px':'15px')}catch{}
 
 const timeshift=timeshiftUI({api,host:$('settings'),message});
@@ -177,3 +178,10 @@ $('pause-live').onclick=()=>{const t=wall.selected;if(!t)return;t.userPaused=!t.
 $('rewind-live').onclick=()=>{if(wall.selected&&!seekWithinWindow(wall.selected.video,-30))message('No rewind window is available yet')};
 $('jump-live').onclick=()=>{const t=wall.selected;if(t){t.userPaused=false;seekWithinWindow(t.video,null);t.video.play().catch(e=>message(e.message,true))}};
 $('settings-tab').addEventListener('click',()=>timeshift.load().catch(e=>message(e.message,true)));
+
+const studio=appearanceStudio({message,onChange:settings=>{
+ const viewport=$('guide-viewport'),anchor=viewport.scrollTop/rowHeight,metrics=guideMetrics(settings);
+ rowHeight=metrics.row;document.documentElement.style.setProperty('--guide-row-height',(rowHeight-4)+'px');document.documentElement.style.setProperty('--guide-font-size',metrics.font+'px');
+ viewport.scrollTop=anchor*rowHeight;renderGuide();scheduleGuide();
+}});
+const appearanceSettings=document.createElement('button');appearanceSettings.className='secondary';appearanceSettings.textContent='Appearance Studio';appearanceSettings.onclick=()=>studio.open();$('settings').prepend(appearanceSettings);

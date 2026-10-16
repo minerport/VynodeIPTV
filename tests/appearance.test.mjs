@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {defaults,choices,normalizeAppearance,decodeAppearance,guideMetrics} from '../server/web/appearance.js';
+const catalog=JSON.parse(fs.readFileSync('server/web/appearance-presets.json'));
+test('appearance assets match on Android and browser',()=>{assert.deepEqual(catalog,JSON.parse(fs.readFileSync('android/app/src/main/assets/appearance-presets.json')));assert.deepEqual(catalog.defaults,defaults);assert.deepEqual(Object.keys(catalog.palettes),choices.palette)});
+test('appearance import is versioned and excludes account fields and arbitrary styling',()=>{const value=decodeAppearance(JSON.stringify({version:1,settings:{layout:'cinema',palette:'pearl',scale:1.15,password:'secret',css:'url(evil)',font:'modern'}}));assert.equal(value.layout,'cinema');assert.equal(value.scale,1.15);assert.equal('password' in value,false);assert.equal('css' in value,false);assert.throws(()=>decodeAppearance('{"version":2,"settings":{}}'));assert.throws(()=>decodeAppearance('x'.repeat(32769)))});
+test('invalid settings fall back to safe defaults and row sizing follows font scale',()=>{assert.deepEqual(normalizeAppearance({layout:'unknown',palette:'javascript',scale:100,corners:'huge'}),defaults);assert.deepEqual(normalizeAppearance(null),defaults);for(const density of choices.density){const small=guideMetrics({...defaults,density,scale:1}),large=guideMetrics({...defaults,density,scale:1.3});assert.ok(large.row>small.row);assert.ok(large.font>small.font)}});
+const luminance=h=>{const values=h.slice(1).match(/../g).map(s=>parseInt(s,16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return values[0]*.2126+values[1]*.7152+values[2]*.0722};
+const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+test('all shipped palette text and filled focus pairs meet normal text contrast',()=>{for(const p of Object.values(catalog.palettes)){for(const bg of ['background','surface','programme','live'])for(const text of ['text','muted'])assert.ok(contrast(p[bg],p[text])>=4.5,p.name+' '+bg+' '+text);assert.ok(contrast(p.accent,p.onAccent)>=4.5,p.name+' focus')}});
+test('bundled presets remain valid complete themes',()=>{for(const p of catalog.presets){const s=normalizeAppearance(p.settings);assert.ok(catalog.palettes[s.palette]);assert.ok(s.scale<=1.3);assert.ok(guideMetrics(s).row>=45)}});

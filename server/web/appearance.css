@@ -1,0 +1,38 @@
+@font-face{font-family:VynodeInter;src:url('/fonts/inter.ttf') format('truetype');font-weight:100 900;font-display:swap}
+@font-face{font-family:VynodeReadable;src:url('/fonts/atkinson.ttf') format('truetype');font-weight:100 900;font-display:swap}
+html[data-palette]{color-scheme:dark;background:var(--a-background);color:var(--a-text);font-family:var(--a-font);--muted:var(--a-muted);--line:var(--a-border);--mint:var(--a-accent)}
+html[data-palette=pearl]{color-scheme:light}
+html[data-palette] body{background:radial-gradient(ellipse at top left,var(--a-surface),transparent 70%),var(--a-background);color:var(--a-text)}
+html[data-palette] button,html[data-palette] input,html[data-palette] select{font-family:var(--a-font);border-radius:var(--a-radius)}
+html[data-palette] button{background:var(--a-accent);color:var(--a-onAccent)}
+html[data-palette] .secondary,html[data-palette] .quiet,html[data-palette] .channel-name,html[data-palette] #groups button,html[data-palette] .icon-rail button{background:var(--a-programme);color:var(--a-text)}
+html[data-palette] input,html[data-palette] select{background:var(--a-background);color:var(--a-text);border-color:var(--a-border)}
+html[data-palette] label,html[data-palette] .guide-heading,html[data-palette] .metadata-feature a{color:var(--a-muted)}
+html[data-palette] .mark,html[data-palette] .eyebrow,html[data-palette] .health{color:var(--a-accent)}
+html[data-palette] .panel,html[data-palette] .stats>div,html[data-palette] dialog,html[data-palette] #live>aside,html[data-palette] .icon-rail{background:var(--a-surface);color:var(--a-text);border:1px solid var(--a-border);border-radius:var(--a-radius)}
+html[data-palette] .group-entry.pinned,html[data-palette] .channel-cell,html[data-palette] .programme-track{background:var(--a-background)}
+html[data-palette] .programme,html[data-palette] .epg-gap{background:var(--a-programme);color:var(--a-text);border:1px solid var(--a-border);border-radius:var(--a-radius)}
+html[data-palette] .programme.live{background:var(--a-live)}
+html[data-palette] #groups button.active{background:var(--a-accent);color:var(--a-onAccent)}
+html[data-palette] .now-line{background:var(--a-accent)}
+html[data-palette] :focus-visible{outline:2px solid var(--a-accent);outline-offset:-2px}
+html[data-focus=fill] .programme:focus-visible,html[data-focus=fill] .channel-name:focus-visible{background:var(--a-accent);color:var(--a-onAccent)}
+html[data-focus=glow] :focus-visible{outline-width:3px;box-shadow:0 0 0 3px color-mix(in srgb,var(--a-accent) 25%,transparent)}
+html[data-borders=strong] .programme,html[data-borders=strong] .channel-cell{border-width:2px;border-style:solid;border-color:var(--a-border)}
+html[data-surface=frosted] dialog,html[data-surface=frosted] #live>aside,html[data-surface=frosted] .icon-rail{background:linear-gradient(135deg,color-mix(in srgb,var(--a-surface) 94%,white),color-mix(in srgb,var(--a-surface) 88%,transparent));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 8px 24px #0003}
+html[data-surface=smoked] dialog,html[data-surface=smoked] #live>aside,html[data-surface=smoked] .icon-rail{background:linear-gradient(135deg,var(--a-surface),color-mix(in srgb,var(--a-background) 92%,transparent));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 8px 24px #0005}
+@supports not (backdrop-filter:blur(1px)){html[data-surface] dialog,html[data-surface] #live>aside{background:var(--a-surface)}}
+html[data-artwork=header] .programme-art,html[data-artwork=off] .programme-art,html[data-artwork=off] .metadata-feature img{display:none}
+html[data-layout=guide] .watch{display:block}html[data-layout=guide] .preview-stack{display:flex;gap:12px;align-items:center;flex-wrap:wrap}html[data-layout=guide] #wall:not(.expanded):not(:fullscreen){width:160px;height:90px;aspect-ratio:16/9;flex:none}html[data-layout=guide] .watch-info{display:none}html[data-layout=guide] #guide-viewport{height:65vh}html[data-layout=guide] #player-controls{max-width:480px}
+html[data-layout=cinema] .watch{grid-template-columns:1.25fr 1fr}html[data-layout=cinema] .watch-info h1{font-size:clamp(24px,3vw,38px)}html[data-layout=cinema] .metadata-feature img{width:110px;flex-basis:110px;max-height:165px}
+.appearance-studio{width:min(900px,95vw);max-height:92dvh;overflow:auto;padding:24px}.appearance-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 16px}.appearance-presets{display:flex;gap:8px;flex-wrap:wrap}.appearance-presets button{border:2px solid;padding:14px}.appearance-preview{margin:18px 0;padding:16px;border:1px solid;border-radius:10px}.appearance-preview-top{display:flex;gap:16px;align-items:center;margin-bottom:12px}.appearance-preview-video{background:linear-gradient(135deg,#1d333d,#596269);color:white;display:grid;place-items:center;width:140px;height:75px;flex:none}.appearance-preview-top.cinema .appearance-preview-video{width:210px;height:100px}.appearance-preview-top.guide .appearance-preview-video{width:70px;height:40px}.appearance-preview-row{display:grid;grid-template-columns:1fr 3fr;gap:12px;padding:8px;margin-top:3px}.appearance-preview p{color:inherit;margin:5px 0}.appearance-preview[data-surface=frosted]{box-shadow:inset 0 1px 18px #ffffff22}.appearance-preview[data-surface=smoked]{box-shadow:inset 0 1px 18px #0008}
+@media(max-width:700px){.appearance-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.appearance-studio{padding:16px}.appearance-preview-top.cinema .appearance-preview-video{width:100px;height:65px}html[data-layout=guide] #guide-viewport{height:55dvh}html[data-layout=cinema] .watch{display:flex}html[data-layout=cinema] .metadata-feature img{width:70px;flex-basis:70px;max-height:105px}}
+@media(prefers-reduced-transparency:reduce){html[data-surface] dialog,html[data-surface] #live>aside,html[data-surface] .icon-rail{background:var(--a-surface);backdrop-filter:none;-webkit-backdrop-filter:none}}
+
+html[data-palette] p{font-size:calc(14px * var(--a-scale))}html[data-palette] label{font-size:calc(12px * var(--a-scale))}html[data-palette] h2{font-size:calc(23px * var(--a-scale))}html[data-palette] h3{font-size:calc(15px * var(--a-scale))}html[data-palette] button,html[data-palette] input,html[data-palette] select{font-size:calc(13px * var(--a-scale))}
+html[data-palette] .guide-row .programme,html[data-palette] .guide-row .channel-name{font-size:var(--guide-font-size)}
+html[data-palette] #wall.expanded,html[data-palette] #wall:fullscreen{border:0;border-radius:0;box-shadow:none;background:#000}
+html[data-palette] #wall .wall-tile span{color:#fff}
+html[data-palette] .appearance-preview p{font-size:12px;color:inherit}
+
+html[data-focus=fill] .programme:focus-visible .programme-facts,html[data-focus=fill] .programme:focus-visible small{color:var(--a-onAccent)}

@@ -39,7 +39,7 @@ class RecordingActivity:ComponentActivity(){
  private var storage by mutableStateOf<String?>(null)
  private var notice by mutableStateOf("")
  private val folder=registerForActivityResult(ActivityResultContracts.OpenDocumentTree()){uri->if(uri!=null)try{contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION);RecordingStore.storage(this,uri.toString());storage=uri.toString()}catch(_:Exception){notice="Cannot retain access to this folder. Choose a writable USB folder."}}
- override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);storage=RecordingStore.storage(this);setContent{MaterialTheme(colorScheme=darkColorScheme(primary=TvPalette.Accent,onPrimary=TvPalette.OnAccent,background=TvPalette.Background,surface=TvPalette.Surface)){Surface(Modifier.fillMaxSize()){Content()}}}}
+ override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);storage=RecordingStore.storage(this);Appearance.load(this);setContent{AppearanceTheme{Surface(Modifier.fillMaxSize()){Content()}}}}
  override fun onDestroy(){scope.cancel();super.onDestroy()}
  private suspend fun api(p:Profile,path:String,method:String="GET",body:JSONObject?=null)=request(p.base+"/api/v1/recordings"+path,p.token,method,body)
  private fun work(action:suspend()->Unit){scope.launch{try{action()}catch(e:CancellationException){throw e}catch(e:Exception){notice=e.message?:"Recording operation failed"}}}

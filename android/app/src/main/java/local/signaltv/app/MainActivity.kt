@@ -74,7 +74,8 @@ class MainActivity: ComponentActivity() {
         RefreshJobs.schedule(this)
         RecordingStore.schedule(this)
         scope.launch{withContext(Dispatchers.IO){runCatching{RefreshJobs.run(this@MainActivity)}}}
-        setContent{MaterialTheme(colorScheme=darkColorScheme(primary=TvPalette.Accent,onPrimary=TvPalette.OnAccent,secondary=TvPalette.Accent,onSecondary=TvPalette.OnAccent,background=TvPalette.Background,onBackground=TvPalette.Text,surface=TvPalette.Surface,onSurface=TvPalette.Text,surfaceVariant=TvPalette.Track,onSurfaceVariant=TvPalette.Muted,surfaceTint=TvPalette.Accent,primaryContainer=TvPalette.Live,onPrimaryContainer=TvPalette.Text,secondaryContainer=TvPalette.Surface,onSecondaryContainer=TvPalette.Text,tertiary=TvPalette.Accent,outline=TvPalette.Muted)){Surface(Modifier.fillMaxSize()){App()}}}
+        Appearance.load(this)
+        setContent{AppearanceTheme{Surface(Modifier.fillMaxSize()){App()}}}
     }
     private fun openRecordings(schedule:Boolean=false){
         val p=profile?:return
@@ -244,12 +245,14 @@ class MainActivity: ComponentActivity() {
                     requestFocus()
                 }},update={bindPlaybackView(it,engine)},onRelease={bindPlaybackView(it,null)},modifier=Modifier.fillMaxSize())
                 if(overlay)Column(Modifier.fillMaxWidth().background(Color(0xBB101216)).padding(16.dp)){
-                    Text(c.name,style=MaterialTheme.typography.titleMedium);Text(status,style=MaterialTheme.typography.bodySmall);Text(currentProgramme(liveProgrammes,liveNow)?.title?:"No EPG data",style=MaterialTheme.typography.bodySmall)
+                    Text(c.name,style=MaterialTheme.typography.titleMedium,color=Color.White);Text(status,style=MaterialTheme.typography.bodySmall,color=Color.White);Text(currentProgramme(liveProgrammes,liveNow)?.title?:"No EPG data",style=MaterialTheme.typography.bodySmall,color=Color.White)
                 }
             };return
         }
         if(multiView){MultiView();return}
         var settings by remember{mutableStateOf(false)}
+        var appearanceOpen by remember{mutableStateOf(false)}
+        if(appearanceOpen)AppearanceStudio{appearanceOpen=false}
         Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(TvPalette.Glow,TvPalette.Background))).padding(horizontal=24.dp,vertical=12.dp)){
             if(profile==null)Text("VYNODE IPTV · $status",style=MaterialTheme.typography.titleLarge)
             if(unlockError){Text(status);Button(onClick={restoreConnection()}){Text("Retry")};Button(onClick={secure.clear();unlockError=false;status="Choose how to connect"}){Text("Reset saved login")};return@Column}
@@ -258,9 +261,9 @@ class MainActivity: ComponentActivity() {
             repository?.let { repo -> GuideScreen(channels,repo,guideState,onWall={wallMode=wallMode.enter();multiView=true;saveScene();ensureStreams()},onSettings={settings=true},onRefresh={refreshChannels()},onRefreshEpg={refreshEpg()},preview={height->
                 Row(Modifier.fillMaxWidth().padding(bottom=8.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)){
                     Column{
-                        Box(Modifier.height(height).aspectRatio(16f/9f).clip(RoundedCornerShape(12.dp)).background(Color.Black).border(1.dp,TvPalette.Line,RoundedCornerShape(12.dp))){
+                        Box(Modifier.height(height).aspectRatio(16f/9f).clip(RoundedCornerShape(Appearance.current.radius.dp)).background(Color.Black).border(1.dp,TvPalette.Line,RoundedCornerShape(Appearance.current.radius.dp))){
                             if(c!=null)AndroidView(factory={PlayerView(it).apply{bindPlaybackView(this,engine);keepScreenOn=true;useController=false}},update={bindPlaybackView(it,engine)},onRelease={bindPlaybackView(it,null)},modifier=Modifier.fillMaxSize())
-                            if(c==null)Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Text("VYNODE",style=MaterialTheme.typography.headlineMedium,color=TvPalette.Accent);Text("Choose something worth watching",style=MaterialTheme.typography.bodySmall,color=TvPalette.Muted)}
+                            if(c==null&&height>=90.dp)Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Text("VYNODE",style=MaterialTheme.typography.headlineMedium,color=Color.White);Text("Choose something worth watching",style=MaterialTheme.typography.bodySmall,color=Color.LightGray)}
                             if(c!=null)Box(Modifier.matchParentSize().clickable(onClickLabel="Open fullscreen"){ensureStreams();fullScreen=true})
                         }
                     }
@@ -301,6 +304,7 @@ class MainActivity: ComponentActivity() {
             var dailyEpg by remember{mutableStateOf(refreshPrefs.epg)}
             AlertDialog(onDismissRequest={settings=false},title={Text("Connection settings")},text={Column(Modifier.heightIn(max=300.dp).verticalScroll(rememberScrollState())){
                 TextButton(onClick={settings=false;healthOpen=true}){Text("Playback health & performance")}
+                TextButton(onClick={settings=false;appearanceOpen=true}){Text("Appearance Studio")}
                 TextButton(onClick={settings=false;tmdbOpen=true}){Text("Metadata · TMDB")}
                 Row{Checkbox(dailyChannels,{dailyChannels=it});Text("Refresh channels daily",Modifier.padding(top=14.dp))}
                 Row{Checkbox(dailyEpg,{dailyEpg=it});Text("Refresh EPG daily",Modifier.padding(top=14.dp))}

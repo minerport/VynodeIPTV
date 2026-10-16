@@ -33,11 +33,12 @@ import java.time.format.DateTimeFormatter
     val metadata=rememberProgrammeMetadata(profile,programme)
     var now by remember{mutableLongStateOf(System.currentTimeMillis())}
     LaunchedEffect(Unit){while(true){delay(30000);now=System.currentTimeMillis()}}
+    val brief=compact&&Appearance.current.layout=="guide"
     val live=programme!=null && programme.start<=now && programme.end>now
     Row(modifier,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-        if(compact)metadataArtwork(metadata)?.let{MetadataArtwork(it,Modifier.width(72.dp).height(108.dp).padding(top=4.dp))}
+        if(compact&&Appearance.current.artwork!="off"&&Appearance.current.layout!="guide")metadataArtwork(metadata)?.let{MetadataArtwork(it,Modifier.width(72.dp).height(108.dp).padding(top=4.dp))}
         Column(Modifier.weight(1f).padding(vertical=4.dp),verticalArrangement=Arrangement.spacedBy(if(compact)2.dp else 6.dp)){
-        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        if(!brief)Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
             Text(if(live)"● LIVE" else if(programme==null)"DISCOVER" else if(programme.end<=now)"EARLIER" else "UP NEXT",
                 Modifier.background(TvPalette.Signal.copy(alpha=.12f),RoundedCornerShape(4.dp)).padding(horizontal=8.dp,vertical=4.dp),
                 color=TvPalette.Signal,fontSize=10.sp,lineHeight=12.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
@@ -49,12 +50,12 @@ import java.time.format.DateTimeFormatter
             Text(time.format(Instant.ofEpochMilli(programme.start))+" – "+time.format(Instant.ofEpochMilli(programme.end))+"  ·  "+((programme.end-programme.start)/60000)+" min",color=TvPalette.Muted,fontSize=11.sp,lineHeight=14.sp)
             if(live)LinearProgressIndicator(progress={((now-programme.start).toFloat()/(programme.end-programme.start)).coerceIn(0f,1f)},modifier=Modifier.widthIn(max=240.dp).fillMaxWidth().height(3.dp),color=TvPalette.Signal,trackColor=TvPalette.Line)
         }
-        Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
-            if(!compact)metadataArtwork(metadata)?.let{MetadataArtwork(it,Modifier.width(if(compact)32.dp else 55.dp).height(if(compact)48.dp else 82.dp))}
+        if(!brief)Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
+            if(!compact&&Appearance.current.artwork!="off")metadataArtwork(metadata)?.let{MetadataArtwork(it,Modifier.width(if(compact)32.dp else 55.dp).height(if(compact)48.dp else 82.dp))}
             Column(Modifier.weight(1f)){
                 if(metadata!=null)Text(listOf(episodeLabel(metadata),metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=TvPalette.Muted,fontSize=11.sp,lineHeight=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                 Text(programme?.description?.takeIf{it.isNotBlank()}?:metadata?.optString("overview")?.takeIf{it.isNotBlank()}?:if(channel==null)"Explore your channels, favorite the ones you love, and settle in." else if(programme==null)"No EPG data for this channel." else channel.name,
-                    color=TvPalette.Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=if(compact)2 else 3,overflow=TextOverflow.Ellipsis)
+                    color=TvPalette.Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=if(compact&&Appearance.current.scale>1f)1 else if(compact)2 else 3,overflow=TextOverflow.Ellipsis)
                 if(metadata!=null)Text("TMDB · "+(if(metadata.optInt("episode")>0)"Episode information" else if(metadata.optString("kind")=="tv")"Series information" else "Movie information")+metadataNames(metadata,"cast").takeIf{it.isNotBlank()}?.let{" · $it"}.orEmpty(),fontSize=10.sp,lineHeight=12.sp,color=TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
         }

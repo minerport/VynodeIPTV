@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "palettes": {
+    "cinema": {
+      "name": "Vynode Cinema",
+      "background": "#101010",
+      "surface": "#1a1a1a",
+      "programme": "#242424",
+      "live": "#383838",
+      "text": "#f5f2eb",
+      "muted": "#b5b3af",
+      "accent": "#e6bc78",
+      "onAccent": "#17130d",
+      "border": "#72706b"
+    },
+    "obsidian": {
+      "name": "Obsidian",
+      "background": "#000000",
+      "surface": "#111111",
+      "programme": "#202020",
+      "live": "#353535",
+      "text": "#f5f5f5",
+      "muted": "#b4b4b4",
+      "accent": "#eeeeee",
+      "onAccent": "#111111",
+      "border": "#747474"
+    },
+    "arctic": {
+      "name": "Arctic Glass",
+      "background": "#12191f",
+      "surface": "#202b34",
+      "programme": "#2a3944",
+      "live": "#354d5d",
+      "text": "#f2f8fc",
+      "muted": "#bdcdd9",
+      "accent": "#a8ddf5",
+      "onAccent": "#10222b",
+      "border": "#7b929f"
+    },
+    "midnight": {
+      "name": "Midnight",
+      "background": "#0c1425",
+      "surface": "#17243a",
+      "programme": "#20334c",
+      "live": "#2a4561",
+      "text": "#f0f6ff",
+      "muted": "#b9c9df",
+      "accent": "#90d8ea",
+      "onAccent": "#102329",
+      "border": "#6d88a5"
+    },
+    "ember": {
+      "name": "Ember",
+      "background": "#191210",
+      "surface": "#2a1e19",
+      "programme": "#382921",
+      "live": "#50382b",
+      "text": "#fff3e9",
+      "muted": "#d5bdae",
+      "accent": "#f0b184",
+      "onAccent": "#2d190d",
+      "border": "#a18470"
+    },
+    "pearl": {
+      "name": "Pearl",
+      "background": "#f4f2ec",
+      "surface": "#ffffff",
+      "programme": "#e8e6df",
+      "live": "#d2e2df",
+      "text": "#202b2a",
+      "muted": "#4f5d59",
+      "accent": "#235f59",
+      "onAccent": "#ffffff",
+      "border": "#7b8580"
+    },
+    "contrast": {
+      "name": "High Contrast",
+      "background": "#000000",
+      "surface": "#080808",
+      "programme": "#111111",
+      "live": "#242424",
+      "text": "#ffffff",
+      "muted": "#eeeeee",
+      "accent": "#ffde59",
+      "onAccent": "#000000",
+      "border": "#bfbfbf"
+    }
+  },
+  "defaults": {
+    "layout": "classic",
+    "palette": "cinema",
+    "surface": "matte",
+    "font": "standard",
+    "scale": 1,
+    "density": "compact",
+    "corners": "soft",
+    "borders": "clear",
+    "focus": "outline",
+    "artwork": "all"
+  },
+  "presets": [
+    {
+      "name": "Cinema Classic",
+      "settings": {
+        "layout": "classic",
+        "palette": "cinema",
+        "surface": "matte",
+        "font": "modern"
+      }
+    },
+    {
+      "name": "Arctic Glass",
+      "settings": {
+        "layout": "classic",
+        "palette": "arctic",
+        "surface": "frosted",
+        "font": "modern"
+      }
+    },
+    {
+      "name": "Pure Guide",
+      "settings": {
+        "layout": "guide",
+        "palette": "obsidian",
+        "surface": "matte",
+        "font": "standard",
+        "corners": "square"
+      }
+    },
+    {
+      "name": "Home Theater",
+      "settings": {
+        "layout": "cinema",
+        "palette": "ember",
+        "surface": "smoked",
+        "font": "modern",
+        "density": "comfortable"
+      }
+    },
+    {
+      "name": "Daylight",
+      "settings": {
+        "layout": "classic",
+        "palette": "pearl",
+        "surface": "matte",
+        "font": "modern"
+      }
+    },
+    {
+      "name": "Easy Read",
+      "settings": {
+        "layout": "guide",
+        "palette": "contrast",
+        "surface": "matte",
+        "font": "readable",
+        "density": "large",
+        "borders": "strong",
+        "scale": 1.15
+      }
+    }
+  ]
+}
