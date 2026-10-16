@@ -102,6 +102,7 @@ func (a *App) startSession(owner string, c Channel, p Provider, profiles ...stri
 }
 func (a *App) runSession(ctx context.Context, s *Session, c Channel, p Provider) {
 	defer close(s.done)
+	timeshift := a.store.snapshot().Timeshift.normalized()
 	root := filepath.Join(a.scratch, s.ID)
 	defer os.RemoveAll(root)
 	inputURL := ""
@@ -145,7 +146,7 @@ func (a *App) runSession(ctx context.Context, s *Session, c Channel, p Provider)
 				args = append(args, "-c", "copy")
 			}
 		}
-		args = append(args, "-f", "hls", "-hls_time", "2", "-hls_list_size", "8", "-hls_delete_threshold", "3", "-hls_flags", "delete_segments+temp_file", "-hls_segment_filename", filepath.Join(dir, "segment-%06d.ts"), filepath.Join(dir, "live.m3u8"))
+		args = append(args, "-f", "hls", "-hls_time", "2", "-hls_list_size", strconv.Itoa(timeshift.segments()), "-hls_delete_threshold", "3", "-hls_flags", "delete_segments+temp_file", "-hls_segment_filename", filepath.Join(dir, "segment-%06d.ts"), filepath.Join(dir, "live.m3u8"))
 		workerCtx, workerCancel := context.WithCancel(ctx)
 		s.mu.Lock()
 		s.workerCancel = workerCancel
@@ -222,13 +223,13 @@ func (a *App) runSession(ctx context.Context, s *Session, c Channel, p Provider)
 				s.mu.Lock()
 				s.health.ScratchBytes = bytes
 				s.mu.Unlock()
-				if bytes > 256<<20 {
+				if bytes > int64(timeshift.MaxMB)<<20 {
 					workerCancel()
 					if running {
 						<-exited
 					}
 					ticker.Stop()
-					s.set("failed", "Session exceeded 256 MB scratch budget")
+					s.set("failed", "Session exceeded configured scratch budget; reduce timeshift duration or increase its storage limit")
 					return
 				}
 			}

@@ -89,6 +89,12 @@ class GuideUiState {
     var searching by remember{mutableStateOf(false)}
     var searchDraft by remember{mutableStateOf("")}
     var saving by remember{mutableStateOf(false)}
+    val experience=remember(repo.profile){GuideExperience(context,repo.profile)}
+    var density by remember(repo.profile){mutableStateOf(experience.density())}
+    var artwork by remember(repo.profile){mutableStateOf(experience.artwork())}
+    var appearance by remember{mutableStateOf(false)}
+    var globalSearch by remember{mutableStateOf(false)}
+    var recentOpen by remember{mutableStateOf(false)}
     val cache=state.cache
     val windowStart=start/21600000*21600000
     fun shiftTime(delta:Long){val current=System.currentTimeMillis();start=(start+delta).coerceIn(current-7*86400000,current+7*86400000)}
@@ -200,6 +206,9 @@ class GuideUiState {
                         var menu by remember{mutableStateOf(false)}
                         IconButton(onClick={menu=true},modifier=Modifier.width(36.dp).semantics{contentDescription="Guide menu"}){Text("☰")}
                         DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
+                            DropdownMenuItem(text={Text("Search everything")},onClick={menu=false;globalSearch=true})
+                            DropdownMenuItem(text={Text("Recent channels")},onClick={menu=false;recentOpen=true})
+                            DropdownMenuItem(text={Text("Guide appearance")},onClick={menu=false;appearance=true})
                             DropdownMenuItem(text={Text("Channel groups")},onClick={menu=false;navigationOpen=!navigationOpen})
                             if(custom!=null)DropdownMenuItem(text={Text("Edit group")},onClick={menu=false;editing=custom})
                             DropdownMenuItem(text={Text("Earlier")},onClick={menu=false;shiftTime(-1800000)})
@@ -216,10 +225,10 @@ class GuideUiState {
             }
             LazyColumn(Modifier.weight(1f),state=state.channelScroll,verticalArrangement=Arrangement.spacedBy(2.dp)){
                 items(filtered,key={it.id}){c->
-                    Row(Modifier.fillMaxWidth().height(44.dp).clipToBounds(),horizontalArrangement=Arrangement.spacedBy(3.dp)){
+                    Row(Modifier.fillMaxWidth().height(density.row.dp).clipToBounds(),horizontalArrangement=Arrangement.spacedBy(3.dp)){
                         Row(Modifier.width(170.dp)){
                             IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
-                            Box(Modifier.weight(1f)){GuideButton(c.name,modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
+                            Box(Modifier.weight(1f)){GuideButton(c.name,density=density,modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
                         }
                         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().clipToBounds().background(TvPalette.Track,RoundedCornerShape(6.dp))){
                             val width=maxWidth
@@ -237,7 +246,7 @@ class GuideUiState {
                                 val left=(cell.start-start)/5400000f;val right=(cell.end-start)/5400000f;val p=cell.programme
                                 Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp).clipToBounds().border(1.dp,TvPalette.GuideBorder,RoundedCornerShape(4.dp))){
                                     if(p==null)Text(if(cache.containsKey(c.id))"No EPG data" else "Loading EPG…",Modifier.fillMaxSize().background(TvPalette.Track).padding(8.dp),color=TvPalette.Muted,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
-                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,modifier=Modifier.fillMaxHeight(),metadata=if(width*(right-left)>=110.dp)metadata[programmeMetadataKey(p)]?.second else null,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
+                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,density=density,modifier=Modifier.fillMaxHeight(),metadata=if(artwork && width*(right-left)>=110.dp)metadata[programmeMetadataKey(p)]?.second else null,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
                                 }
                             }
                             if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(TvPalette.Signal))
@@ -253,6 +262,19 @@ class GuideUiState {
           }
         }
     }
+    if(globalSearch)SearchEverywhere(repo,channels,cache.mapValues{it.value.second},dismiss={globalSearch=false}){hit->
+        globalSearch=false
+        if(hit.kind.equals("recording",true))context.startActivity(android.content.Intent(context,RecordingActivity::class.java).putExtra("account",repo.profile.accountKey()))
+        else hit.channel?.let{c->selected="all";query="";navigationOpen=false;hit.start?.let{start=it};state.returnChannel.value=c.id;state.focusedChannel.value=c}
+    }
+    if(recentOpen)AlertDialog(onDismissRequest={recentOpen=false},title={Text("Recent channels")},text={
+        val recent=experience.recent().mapNotNull{id->channels.find{it.id==id}}
+        LazyColumn(Modifier.heightIn(max=280.dp)){if(recent.isEmpty())item{Text("Channels you watch will appear here.")};items(recent,key={it.id}){c->TextButton(onClick={recentOpen=false;play(c)}){Text(c.name)}}}
+    },confirmButton={TextButton(onClick={recentOpen=false}){Text("Close")}})
+    if(appearance)AlertDialog(onDismissRequest={appearance=false},title={Text("Guide appearance")},text={Column{
+        GuideDensity.entries.forEach{value->TextButton(onClick={density=value;experience.density(value)}){Text((if(density==value)"✓ " else "")+value.label)}}
+        Row{Checkbox(artwork,{artwork=it;experience.artwork(it)});Text("Artwork in guide rows",Modifier.padding(top=12.dp))}
+    }},confirmButton={TextButton(onClick={appearance=false}){Text("Done")}})
     if(searching){
         val searchFocus=remember{FocusRequester()}
         val keyboard=LocalSoftwareKeyboardController.current
@@ -290,14 +312,14 @@ class GuideUiState {
     editing?.let{g->GroupEditor(g,channels,onDismiss={editing=null},onSave={name,ids->scope.launch{try{store.save(g.copy(name=name,channelIds=ids));groups=store.load();editing=null;message="Group saved"}catch(e:Exception){message=e.message?:"Could not save group"}}},onDelete={scope.launch{try{store.delete(g.id);groups=store.load();selected="all";editing=null}catch(e:Exception){message=e.message?:"Could not delete group"}}})}
 }
 
-@Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, onFocused:()->Unit={}, action: ()->Unit){
+@Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, density:GuideDensity=GuideDensity.COMPACT, onFocused:()->Unit={}, action: ()->Unit){
     var focused by remember{mutableStateOf(false)}
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp){
     TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=36.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 1.dp,if(focused)TvPalette.Accent else TvPalette.GuideBorder,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
         val artwork=metadataArtwork(metadata)
         if(artwork!=null)MetadataArtwork(artwork,Modifier.width(24.dp).height(34.dp).padding(end=4.dp))
         Column(Modifier.weight(1f)){
-            Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=if(metadata==null)2 else 1,overflow=TextOverflow.Ellipsis,fontWeight=if(focused || selected)FontWeight.SemiBold else FontWeight.Normal,style=MaterialTheme.typography.bodyMedium,fontSize=if(metadata==null)14.sp else 12.sp,lineHeight=if(metadata==null)18.sp else 16.sp)
+            Text(text,color=if(focused)TvPalette.OnAccent else Color.White,maxLines=if(metadata==null)2 else 1,overflow=TextOverflow.Ellipsis,fontWeight=if(focused || selected)FontWeight.SemiBold else FontWeight.Normal,style=MaterialTheme.typography.bodyMedium,fontSize=(density.text-if(metadata==null)0 else 2).sp,lineHeight=(density.text+4).sp)
             if(metadata!=null)Text(listOf(episodeLabel(metadata),metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=if(focused)TvPalette.OnAccent else TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis,fontSize=10.sp,lineHeight=12.sp)
         }
     }

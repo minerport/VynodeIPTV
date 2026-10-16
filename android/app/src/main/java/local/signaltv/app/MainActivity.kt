@@ -144,6 +144,7 @@ class MainActivity: ComponentActivity() {
     private fun selectSlot(index:Int){selectedSlot=index;current=slots[index];status=slotStatus[index].orEmpty();audio();saveScene()}
     private fun play(c: Channel){
         val repo=repository?:return
+        GuideExperience(this,repo.profile).watched(c.id)
         val existing=slots.indexOfFirst{it?.id==c.id}
         if(existing>=0){selectSlot(existing);ensureStreams();fullScreen=true;multiView=false;return}
         if(slots[selectedSlot]==null && slots.count{it!=null}>=repo.connectionLimit){status="Provider allows ${repo.connectionLimit} simultaneous connections. Remove a panel first.";return}

@@ -40,7 +40,7 @@ export class VideoWall {
  destroyMedia(t){t.hls?.destroy();t.hls=null;t.video.pause();t.video.removeAttribute('src');t.video.load();}
  attach(t){if(t.removed||this.suspended)return;this.destroyMedia(t);t.generation=t.session.generation;t.lastTime=0;t.lastProgress=Date.now();t.healthySince=0;
   const instance=new Hls({liveSyncDurationCount:3,maxBufferLength:24,backBufferLength:6,xhrSetup:(xhr,url)=>{const u=new URL(url,location.href);if(u.origin!==location.origin||!u.pathname.startsWith('/media/'))throw Error('Unexpected media address');xhr.setRequestHeader('Authorization','Bearer '+this.auth());}});t.hls=instance;
-  instance.on(Hls.Events.MANIFEST_PARSED,()=>{if(t.removed||t.hls!==instance)return;t.video.play().catch(()=>{t.status='Select Enable audio / play to begin';this.onChange(this);});});
+  instance.on(Hls.Events.MANIFEST_PARSED,()=>{if(t.removed||t.hls!==instance||t.userPaused)return;t.video.play().catch(()=>{t.status='Select Enable audio / play to begin';this.onChange(this);});});
   instance.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal&&t.hls===instance)this.recover(t,'Browser decoder or network interrupted');});instance.loadSource(t.session.mediaUrl);instance.attachMedia(t.video);
  }
  recover(t,reason){if(t.retryAt||t.removed)return;if(t.retries>=5){t.status='Recovery limit reached. Remove this tile and select the channel to retry.';this.destroyMedia(t);this.onChange(this);return;}t.healthySince=0;t.retries++;t.status=reason+' · retry '+t.retries+'/5';t.retryAt=Date.now()+Math.min(16000,1000*2**(t.retries-1));this.onChange(this);}
@@ -51,7 +51,7 @@ export class VideoWall {
   if(s.state!=='playing'){t.status=s.reason;return;}
   if(t.generation!==s.generation){t.retryAt=0;t.retries=0;this.attach(t);}
   if(t.retryAt&&Date.now()>=t.retryAt){t.retryAt=0;this.attach(t);}
-  if(!t.video.paused&&t.video.currentTime>t.lastTime+.05){t.lastTime=t.video.currentTime;t.lastProgress=Date.now();t.healthySince ||= Date.now();t.status='Playing live';if(Date.now()-t.healthySince>60000)t.retries=0;}
+  if(!t.video.paused&&t.video.currentTime>t.lastTime+.05){t.lastTime=t.video.currentTime;t.lastProgress=Date.now();t.healthySince ||= Date.now();t.status='Playing';if(Date.now()-t.healthySince>60000)t.retries=0;}
   else if(!t.video.paused&&Date.now()-t.lastProgress>15000)this.recover(t,'Playback stalled');
   if(t.retries>=5&&!t.retryAt&&Date.now()-t.lastProgress>15000)t.status='Recovery limit reached. Remove this tile and select the channel to retry.';
  }catch(e){if(!t.removed)t.status=e.message;}finally{t.polling=false;if(!t.removed)this.onChange(this);}}));}
