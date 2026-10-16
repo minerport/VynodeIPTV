@@ -18,6 +18,7 @@ import (
 )
 
 type Channel struct {
+	Logo         string `json:"logo,omitempty"`
 	ID           string `json:"id"`
 	ProviderID   string `json:"providerId"`
 	StreamID     string `json:"streamId"`
@@ -146,6 +147,7 @@ func loadChannels(ctx context.Context, p Provider) ([]Channel, error) {
 		Name     string          `json:"name"`
 		Category json.RawMessage `json:"category_id"`
 		EPG      string          `json:"epg_channel_id"`
+		Logo     string          `json:"stream_icon"`
 	}
 	if err = json.NewDecoder(io.LimitReader(body, 32<<20)).Decode(&rows); err != nil {
 		return nil, errors.New("Invalid channel response or catalog exceeds 32 MB")
@@ -166,7 +168,7 @@ func loadChannels(ctx context.Context, p Provider) ([]Channel, error) {
 		if categoryName == "" {
 			categoryName = "Other channels"
 		}
-		out = append(out, Channel{ID: p.ID + ":" + id, ProviderID: p.ID, StreamID: id, Name: r.Name, Category: categoryID, EPGID: r.EPG, CategoryName: categoryName})
+		out = append(out, Channel{ID: p.ID + ":" + id, ProviderID: p.ID, StreamID: id, Name: r.Name, Category: categoryID, EPGID: r.EPG, CategoryName: categoryName, Logo: safeChannelLogo(r.Logo)})
 	}
 	if len(out) == 0 {
 		return nil, errors.New("Provider returned no usable live channels")
@@ -313,4 +315,18 @@ func doWithHTTPFallback(client *http.Client, req *http.Request, enabled bool) (*
 	next.URL = &u
 	next.Host = u.Host
 	return client.Do(next)
+}
+
+// Channel artwork is fetched directly by clients, never by the server. Keep it
+// encrypted and credential-free; malformed/HTTP icons simply use the text label.
+func safeChannelLogo(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if len(raw) > 2048 {
+		return ""
+	}
+	u, e := url.Parse(raw)
+	if e != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return ""
+	}
+	return u.String()
 }

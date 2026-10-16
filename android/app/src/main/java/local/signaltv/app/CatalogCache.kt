@@ -17,10 +17,10 @@ class CatalogCache(context:Context,profile:Profile){
         val source=if(file.exists())file else legacy
         if(!source.exists() || source.length()>32*1024*1024)return emptyList()
         val a=JSONArray(source.readText())
-        (0 until a.length()).map{a.getJSONObject(it).let{j->Channel(j.getString("id"),j.getString("name"),j.optString("epgId"),j.getString("groupId"),j.getString("groupName"))}}
+        (0 until a.length()).map{a.getJSONObject(it).let{j->Channel(j.getString("id"),j.getString("name"),j.optString("epgId"),j.getString("groupId"),j.getString("groupName"),safeChannelLogo(j.optString("logo")))}}
     }.getOrDefault(emptyList())
     fun save(channels:List<Channel>){
-        val a=JSONArray();channels.forEach{a.put(JSONObject().put("id",it.id).put("name",it.name).put("epgId",it.epgId).put("groupId",it.groupId).put("groupName",it.groupName))}
+        val a=JSONArray();channels.forEach{a.put(JSONObject().put("id",it.id).put("name",it.name).put("epgId",it.epgId).put("groupId",it.groupId).put("groupName",it.groupName).put("logo",it.logo))}
         writeMetadata(file,a.toString())
     }
 }

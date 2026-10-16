@@ -85,3 +85,8 @@ main{padding-left:max(3vw,env(safe-area-inset-left));padding-right:max(3vw,env(s
 @media(max-width:700px){.programme-art{width:24px;height:38px}.programme[data-enriched]{gap:4px;padding:3px}.programme-copy .programme-facts{font-size:9px}}
 
 .guide-row{height:var(--guide-row-height,58px)}.guide-row .programme,.guide-row .channel-name{font-size:var(--guide-font-size,15px)}.recording-dialog>div>button{display:block;width:100%;text-align:left;margin:6px 0}
+
+/* Channel identities and compact context actions retain guide row dimensions. */
+.channel-logo{width:32px;height:28px;object-fit:contain;flex:none;margin-right:6px;vertical-align:middle}
+.channel-actions{max-width:min(420px,90vw)}
+.channel-actions button{display:block;width:100%;margin:8px 0;text-align:left}

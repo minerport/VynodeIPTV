@@ -12,10 +12,20 @@ Implemented in 0.14.0:
 - Opt-in server HLS rolling window of 5/15/30/60 minutes, per-stream scratch cap, cleanup on session closure, browser pause/rewind/live controls. Linked Android uses its existing seek controls. Reconnects begin a new window; this is not gapless stitching or catch-up.
 - Search scope, density arithmetic, recent ordering, seek bounds and timeshift validation tests; synthetic retained-media decode test.
 
+## Milestone 2a: channel identity and actions
+
+Implemented in 0.14.1:
+- Provider channel logos through server catalog, Android standalone import and offline Android catalog cache. HTTPS, credential-free URLs only; missing/rejected artwork leaves the channel name visible. Android limits logo requests to two, image input to 512 KiB and decoded memory cache to 4 MiB.
+- Android hold OK/Menu or touch-hold opens Watch live, Favorite, Details and Record/Schedule actions without tuning on the initial key press. Past broadcasts do not offer recording. These actions use the existing local or server recording/account paths.
+- Browser channel/programme right-click, touch hold and Shift+F10/context-menu key open the same compact actions. Normal browser programme click still opens details.
+- Documented remote contract; keyboard and image policy regression tests, browser and Android emulator acceptance checks.
+
+This advances workstream 2; it does not complete the other seven workstreams.
+
 ## Remaining approved work
 
 1. Reliability: physical Shield automated/recorded acceptance runs, long-duration soak tests, decoder/network failure scenarios, cross-provider fallback only after explicit mapping, server-unavailable direct fallback with existing saved credentials. Existing byte/frame/audio monitoring, staged player recovery and diagnostics are retained.
-2. TV interaction: one documented remote contract, long-press context menu, automated screenshot and D-pad regressions at all densities, channel-logo support, font scaling and accessibility acceptance. Search, recents and density are the first portion only.
+2. TV interaction: broader automated screenshot and D-pad regressions at all densities, font scaling and physical remote/accessibility acceptance. Search, recents and density are the first portion only.
 3. Timeshift: standalone Android bounded disk ring buffer, byte-budget eviction without losing live playback, seek preview, resume after long pauses, and optional provider catch-up. Current server buffer is session-scoped and stops at the configured byte cap rather than silently filling the disk.
 4. Guide intelligence: TMDB correct/remove match actions, supplemental XMLTV mappings and time offsets, genre/type filters and rerun flags when trustworthy; VOD indexing and search. Broadcast times must remain provider authoritative.
 5. Multi-provider lineup: persistent logical channel identity, explicit source ranking, remapping across catalog updates, safe alternate-feed transition, and connection accounting.

@@ -11,7 +11,7 @@
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
   <Date>2026-10-14</Date>
-  <Changes>0.14.0: Accept shorter TMDB v3 API keys as well as Read Access Tokens. Android adds explicit clipboard paste and companion setup guidance.</Changes>
+  <Changes>0.14.1: Provider channel logos and compact channel/programme actions. Android supports hold OK and Menu; browser supports right-click and touch hold. Existing accounts, favorites, guide and recordings are retained.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

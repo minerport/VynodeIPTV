@@ -4,6 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
@@ -95,6 +98,14 @@ class GuideUiState {
     var appearance by remember{mutableStateOf(false)}
     var globalSearch by remember{mutableStateOf(false)}
     var recentOpen by remember{mutableStateOf(false)}
+    var contextTarget by remember{mutableStateOf<Pair<Channel,Programme?>?>(null)}
+    var detailTarget by remember{mutableStateOf<Pair<Channel,Programme?>?>(null)}
+    fun contextMenu(c:Channel,p:Programme?){contextTarget=c to p}
+    fun closeContext(restore:Boolean=true){
+        if(restore)contextTarget?.first?.let{state.returnChannel.value=it.id}
+        contextTarget=null
+    }
+
     val cache=state.cache
     val windowStart=start/21600000*21600000
     fun shiftTime(delta:Long){val current=System.currentTimeMillis();start=(start+delta).coerceIn(current-7*86400000,current+7*86400000)}
@@ -228,7 +239,7 @@ class GuideUiState {
                     Row(Modifier.fillMaxWidth().height(density.row.dp).clipToBounds(),horizontalArrangement=Arrangement.spacedBy(3.dp)){
                         Row(Modifier.width(170.dp)){
                             IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
-                            Box(Modifier.weight(1f)){GuideButton(c.name,density=density,modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
+                            Box(Modifier.weight(1f)){GuideButton(c.name,density=density,logo=c.logo,onLongPress={contextMenu(c,cache[c.id]?.second?.firstOrNull{it.start<=now&&it.end>now})},modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
                         }
                         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().clipToBounds().background(TvPalette.Track,RoundedCornerShape(6.dp))){
                             val width=maxWidth
@@ -240,13 +251,13 @@ class GuideUiState {
                             Box(Modifier.fillMaxSize().border(if(timelineFocused)2.dp else 0.dp,if(timelineFocused)TvPalette.Accent else Color.Transparent).focusRequester(timelineFocus).onFocusChanged{timelineFocused=it.isFocused;if(it.isFocused)describeTime()}.onPreviewKeyEvent{event->
                                 if(event.type==KeyEventType.KeyDown && (event.key==Key.DirectionLeft || event.key==Key.DirectionRight)){
                                     shiftTime(if(event.key==Key.DirectionRight)1800000 else -1800000);describeTime();timelineFocus.requestFocus();true
-                                }else if(event.type==KeyEventType.KeyDown && (event.key==Key.Enter || event.key==Key.DirectionCenter)) {if(event.nativeKeyEvent.repeatCount==0)play(c);true}else false
-                            }.focusable().draggable(dragState,Orientation.Horizontal).semantics{contentDescription="${c.name} programme timeline. Left and right browse times. Select plays live."}){
+                                }else false
+                            }.guideSelectKeys(watch={play(c)},menu={contextMenu(c,state.focusedProgramme.value)}).focusable().draggable(dragState,Orientation.Horizontal).semantics{contentDescription="${c.name} programme timeline. Left and right browse times. Select plays live. Hold Select for actions."}){
                             guideCells(cache[c.id]?.second.orEmpty(),start,start+5400000).forEach{cell->
                                 val left=(cell.start-start)/5400000f;val right=(cell.end-start)/5400000f;val p=cell.programme
                                 Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp).clipToBounds().border(1.dp,TvPalette.GuideBorder,RoundedCornerShape(4.dp))){
                                     if(p==null)Text(if(cache.containsKey(c.id))"No EPG data" else "Loading EPG…",Modifier.fillMaxSize().background(TvPalette.Track).padding(8.dp),color=TvPalette.Muted,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
-                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,density=density,modifier=Modifier.fillMaxHeight(),metadata=if(artwork && width*(right-left)>=110.dp)metadata[programmeMetadataKey(p)]?.second else null,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
+                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,onLongPress={contextMenu(c,p)},density=density,modifier=Modifier.fillMaxHeight(),metadata=if(artwork && width*(right-left)>=110.dp)metadata[programmeMetadataKey(p)]?.second else null,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
                                 }
                             }
                             if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(TvPalette.Signal))
@@ -256,11 +267,27 @@ class GuideUiState {
                 }
                 if(filtered.isEmpty())item{Text(if(query.isNotEmpty())"No channels match your search. Open Search to change or clear it." else "No channels in this view. Edit the group to add channels.",Modifier.padding(20.dp))}
             }
-            Text("${filtered.size} channels  ·  ↑↓ Browse  ·  ←→ Timeline  ·  OK Watch",color=TvPalette.Muted,style=MaterialTheme.typography.labelSmall,modifier=Modifier.padding(top=6.dp))
+            Text("${filtered.size} channels  ·  ↑↓ Browse  ·  ←→ Timeline  ·  OK Watch  ·  Hold OK Actions",color=TvPalette.Muted,style=MaterialTheme.typography.labelSmall,modifier=Modifier.padding(top=6.dp))
             if(state.refreshMessage.value.isNotEmpty())Text(state.refreshMessage.value,style=MaterialTheme.typography.bodySmall)
             if(message.isNotEmpty())Text(message,style=MaterialTheme.typography.bodySmall)
           }
         }
+    }
+    contextTarget?.let{(c,p)->
+        AlertDialog(onDismissRequest={closeContext()},title={Text(c.name)},text={Column(Modifier.heightIn(max=320.dp).verticalScroll(rememberScrollState())){
+            p?.let{Text(it.title,style=MaterialTheme.typography.titleMedium)}
+            TextButton(onClick={closeContext();play(c)}){Text("Watch channel live")}
+            TextButton(onClick={closeContext(restore=selected!="favorites");savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))}){Text(if(c.id in preferences.favorites)"Remove from favorites" else "Add to favorites")}
+            TextButton(onClick={closeContext();detailTarget=c to p}){Text("Programme details")}
+            if(p==null||p.end>System.currentTimeMillis())TextButton(onClick={
+                closeContext()
+                context.startActivity(android.content.Intent(context,RecordingActivity::class.java).putExtra("account",repo.profile.accountKey()).putExtra("schedule",true).putExtra("channel",c.id).putExtra("title",p?.title?:c.name).putExtra("start",p?.start?:System.currentTimeMillis()).putExtra("end",p?.end?:System.currentTimeMillis()+3600000))
+            }){Text(if(p!=null&&p.start>System.currentTimeMillis())"Schedule recording" else "Record")}
+        }},confirmButton={TextButton(onClick={closeContext()}){Text("Close")}})
+    }
+    detailTarget?.let{(c,p)->
+        fun closeDetails(){detailTarget=null;state.returnChannel.value=c.id}
+        AlertDialog(onDismissRequest={closeDetails()},text={Column(Modifier.heightIn(max=340.dp).verticalScroll(rememberScrollState())){ProgrammeFeature(c,p,null,Modifier.fillMaxWidth(),repo.profile)}},confirmButton={TextButton(onClick={closeDetails()}){Text("Close")}})
     }
     if(globalSearch)SearchEverywhere(repo,channels,cache.mapValues{it.value.second},dismiss={globalSearch=false}){hit->
         globalSearch=false
@@ -312,10 +339,11 @@ class GuideUiState {
     editing?.let{g->GroupEditor(g,channels,onDismiss={editing=null},onSave={name,ids->scope.launch{try{store.save(g.copy(name=name,channelIds=ids));groups=store.load();editing=null;message="Group saved"}catch(e:Exception){message=e.message?:"Could not save group"}}},onDelete={scope.launch{try{store.delete(g.id);groups=store.load();selected="all";editing=null}catch(e:Exception){message=e.message?:"Could not delete group"}}})}
 }
 
-@Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, density:GuideDensity=GuideDensity.COMPACT, onFocused:()->Unit={}, action: ()->Unit){
+@Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, density:GuideDensity=GuideDensity.COMPACT, logo:String="", onLongPress:(()->Unit)?=null, onFocused:()->Unit={}, action: ()->Unit){
     var focused by remember{mutableStateOf(false)}
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp){
-    TextButton(onClick=action,modifier=modifier.fillMaxWidth().heightIn(min=36.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 1.dp,if(focused)TvPalette.Accent else TvPalette.GuideBorder,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)),contentPadding=PaddingValues(horizontal=8.dp,vertical=4.dp)){
+    val keys=if(onLongPress!=null)Modifier.guideSelectKeys(action,onLongPress)else Modifier
+    Row(modifier.then(keys).fillMaxWidth().heightIn(min=36.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused)2.dp else 1.dp,if(focused)TvPalette.Accent else TvPalette.GuideBorder,RoundedCornerShape(6.dp)).background(if(focused)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,RoundedCornerShape(6.dp)).combinedClickable(onClick=action,onLongClick=onLongPress,onLongClickLabel=if(onLongPress!=null)"Channel actions" else null,role=androidx.compose.ui.semantics.Role.Button).padding(horizontal=8.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){
+        if(logo.isNotBlank())ChannelLogo(logo,Modifier.width(28.dp).height(26.dp).padding(end=4.dp))
         val artwork=metadataArtwork(metadata)
         if(artwork!=null)MetadataArtwork(artwork,Modifier.width(24.dp).height(34.dp).padding(end=4.dp))
         Column(Modifier.weight(1f)){
@@ -323,7 +351,6 @@ class GuideUiState {
             if(metadata!=null)Text(listOf(episodeLabel(metadata),metadata.optString("year"),metadataNames(metadata,"genres")).filter{it.isNotBlank()}.joinToString(" · "),color=if(focused)TvPalette.OnAccent else TvPalette.Muted,maxLines=1,overflow=TextOverflow.Ellipsis,fontSize=10.sp,lineHeight=12.sp)
         }
     }
-}
 }
 
 @Composable private fun GroupEditor(group: CustomGroup, channels: List<Channel>,onDismiss:()->Unit,onSave:(String,Set<String>)->Unit,onDelete:()->Unit){

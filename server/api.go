@@ -143,10 +143,10 @@ func (a *App) routes() http.Handler {
 	a.recordingPlaybackRoutes(m)
 	a.groupRoutes(m)
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]string{"status": "ok", "version": "0.14.0"})
+		send(w, 200, map[string]string{"status": "ok", "version": "0.14.1"})
 	})
 	m.HandleFunc("GET /api/v1/capabilities", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.14.0", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
+		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.14.1", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
 	}))
 	m.HandleFunc("GET /api/v1/channels", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
@@ -334,7 +334,7 @@ func (a *App) routes() http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; img-src 'self' data: https://image.tmdb.org; frame-ancestors 'none'")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; img-src 'self' data: https:; frame-ancestors 'none'")
 		m.ServeHTTP(w, r)
 	})
 }

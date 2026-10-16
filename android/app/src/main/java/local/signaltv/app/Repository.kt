@@ -11,7 +11,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-data class Channel(val id: String, val name: String, val epgId: String = "", val groupId: String = "other", val groupName: String = "Other channels")
+data class Channel(val id: String, val name: String, val epgId: String = "", val groupId: String = "other", val groupName: String = "Other channels", val logo:String = "")
 data class Playback(val url: String, val sessionId: String? = null, val generation: Int = 0, val state: String = "playing", val reason: String = "")
 data class Profile(val mode: String, val base: String, val token: String = "", val username: String = "", val password: String = "", val format: String = "m3u8", val allowHttp: Boolean = false, val streamProfile: String = "remux", val httpFallback:Boolean=false) {
     fun json() = JSONObject().put("mode",mode).put("base",base).put("token",token).put("username",username).put("password",password).put("format",format).put("allowHttp",allowHttp).put("streamProfile",streamProfile).put("httpFallback",httpFallback)
@@ -61,7 +61,7 @@ class ServerRepository(override val profile: Profile): Repository {
     override suspend fun refreshChannels():List<Channel>{checkRefresh(api("/channels/refresh","POST",JSONObject()));return channels()}
     override suspend fun refreshEpg(channels:List<Channel>){checkRefresh(api("/guide/refresh","POST",JSONObject()))}
     private suspend fun api(path: String, method: String = "GET", body: JSONObject? = null) = request(profile.base + "/api/v1" + path, profile.token,method,body)
-    override suspend fun channels(): List<Channel> { val a=JSONArray(api("/channels"));return (0 until a.length()).map { a.getJSONObject(it).let { Channel(it.getString("id"),it.getString("name"),it.optString("epgId"),it.optString("providerId")+":"+it.optString("category"),it.optString("categoryName","Other channels")) } } }
+    override suspend fun channels(): List<Channel> { val a=JSONArray(api("/channels"));return (0 until a.length()).map { a.getJSONObject(it).let { Channel(it.getString("id"),it.getString("name"),it.optString("epgId"),it.optString("providerId")+":"+it.optString("category"),it.optString("categoryName","Other channels"),safeChannelLogo(it.optString("logo"))) } } }
     suspend fun programmeBatch(channels:List<Channel>, from:Long, to:Long):Map<String,List<Programme>> {
         if(channels.isEmpty())return emptyMap()
         val data=JSONObject(api("/guide?channelIds="+Uri.encode(channels.joinToString(","){it.id})+"&from="+Uri.encode(java.time.Instant.ofEpochMilli(from).toString())+"&to="+Uri.encode(java.time.Instant.ofEpochMilli(to).toString()))).getJSONArray("programmes")
@@ -97,7 +97,7 @@ class XtreamRepository(override val profile: Profile,context:android.content.Con
         val categories=runCatching { JSONArray(request(api("get_live_categories").build().toString(),httpFallback=profile.httpFallback&&profile.allowHttp)) }.getOrDefault(JSONArray())
         val names=(0 until categories.length()).associate { categories.getJSONObject(it).let { c -> c.optString("category_id") to c.optString("category_name","Other channels") } }
         val a=JSONArray(request(api("get_live_streams").build().toString(),httpFallback=profile.httpFallback&&profile.allowHttp))
-        return (0 until a.length()).map { a.getJSONObject(it).let { Channel(it.getString("stream_id"),it.optString("name","Channel"),it.optString("epg_channel_id"),it.optString("category_id","other"),names[it.optString("category_id")]?:"Other channels") } }.distinctBy { it.id }
+        return (0 until a.length()).map { a.getJSONObject(it).let { Channel(it.getString("stream_id"),it.optString("name","Channel"),it.optString("epg_channel_id"),it.optString("category_id","other"),names[it.optString("category_id")]?:"Other channels",safeChannelLogo(it.optString("stream_icon"))) } }.distinctBy { it.id }
     }
     override suspend fun play(channel: Channel)=Playback(profile.base+"/live/"+Uri.encode(profile.username)+"/"+Uri.encode(profile.password)+"/"+Uri.encode(channel.id)+"."+profile.format)
     override suspend fun heartbeat(id: String)=error("Standalone playback has no server session")

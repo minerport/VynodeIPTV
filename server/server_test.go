@@ -111,7 +111,7 @@ func TestProviderValidationAndImport(t *testing.T) {
 			t.Error("password not encoded correctly")
 		}
 		if r.URL.Query().Get("action") == "get_live_streams" {
-			w.Write([]byte(`[{"stream_id":12,"name":"News","category_id":4,"epg_channel_id":"news"},{"stream_id":"12","name":"duplicate"}]`))
+			w.Write([]byte(`[{"stream_id":12,"name":"News","category_id":4,"epg_channel_id":"news","stream_icon":"https://example.com/news.png"},{"stream_id":"12","name":"duplicate"}]`))
 		} else if r.URL.Query().Get("action") == "get_live_categories" {
 			w.Write([]byte(`[{"category_id":"4","category_name":"News channels"}]`))
 		} else {
@@ -128,7 +128,7 @@ func TestProviderValidationAndImport(t *testing.T) {
 		t.Fatal(e)
 	}
 	ch, e := loadChannels(context.Background(), p)
-	if e != nil || len(ch) != 1 || ch[0].ID != "p:12" || ch[0].CategoryName != "News channels" {
+	if e != nil || len(ch) != 1 || ch[0].ID != "p:12" || ch[0].CategoryName != "News channels" || ch[0].Logo != "https://example.com/news.png" {
 		t.Fatal(ch, e)
 	}
 }

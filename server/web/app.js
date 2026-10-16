@@ -1,3 +1,4 @@
+import {safeChannelLogo,bindChannelActions,channelActionMenu} from './channel-actions.js';
 import {timeshiftUI,seekWithinWindow} from './timeshift.js';
 import {discoveryUI,guideDensities} from './discovery.js';
 import {recordingUI} from './recordings.js';
@@ -33,6 +34,11 @@ function renderGroups(){
  }select.dataset.groupId=g.id;box.append(row)});
  box.parentElement.scrollTop=scroll;$('group-title').textContent=selectedGroup()?.name||'All channels';$('edit-group').hidden=!selected.startsWith('custom:');$('reorder-groups').textContent=arranging?'Done managing':'Manage groups';
 }
+function openChannelActions(c,p){
+ const focused=document.activeElement?.dataset.focusKey;
+ const run=fn=>()=>Promise.resolve().then(fn).catch(e=>message(e.message,true));
+ channelActionMenu({channel:c,programme:p,favorite:preferences.favorites.includes(c.id),onWatch:run(()=>tune(c)),onFavorite:run(()=>favorite(c)),onDetails:()=>p?dvr.programme(c,p,()=>tune(c)):message('No EPG data for this channel'),onRecord:()=>dvr.schedule(c,p),onClose:()=>{[...document.querySelectorAll('[data-focus-key]')].find(e=>e.dataset.focusKey===focused)?.focus({preventScroll:true})}});
+}
 function renderGuide(force=true){
  const list=filtered(),viewport=$('guide-viewport');if(viewport.scrollTop>Math.max(0,list.length*rowHeight-viewport.clientHeight))viewport.scrollTop=Math.max(0,list.length*rowHeight-viewport.clientHeight);
  const r=range(),signature=[selected,$('search').value,start,r.start,r.end,list.length].join('|');if(!force&&signature===lastWindow)return;lastWindow=signature;const focus=document.activeElement?.dataset.focusKey;
@@ -41,13 +47,15 @@ function renderGuide(force=true){
  for(const c of list.slice(r.start,r.end)){
   const row=el('div',null,'guide-row'),label=el('div',null,'channel-cell');
   const star=button(preferences.favorites.includes(c.id)?'★':'☆',()=>favorite(c),'favorite');star.setAttribute('aria-label',(preferences.favorites.includes(c.id)?'Remove '+c.name+' from':'Add '+c.name+' to')+' favorites');star.setAttribute('aria-pressed',String(preferences.favorites.includes(c.id)));star.dataset.focusKey='favorite:'+c.id;star.disabled=preferenceBusy;
-  const tuneButton=button(c.name,()=>tune(c),'channel-name');tuneButton.dataset.focusKey='channel:'+c.id;label.append(star,tuneButton);row.append(label);
+  const tuneButton=button(c.name,()=>tune(c),'channel-name');tuneButton.dataset.focusKey='channel:'+c.id;
+  const logo=safeChannelLogo(c.logo);if(logo){const image=el('img');image.src=logo;image.alt='';image.className='channel-logo';image.loading='lazy';image.decoding='async';image.referrerPolicy='no-referrer';image.onerror=()=>image.remove();tuneButton.prepend(image)}
+  bindChannelActions(tuneButton,()=>openChannelActions(c,guideCache.get(c.id)?.programmes.find(p=>Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now())));label.append(star,tuneButton);row.append(label);
   row.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight'].includes(event.key)&&!event.target.classList.contains('favorite')){event.preventDefault();shiftGuide(event.key==='ArrowRight'?1800000:-1800000);[...target.querySelectorAll('[data-focus-key]')].find(e=>e.dataset.focusKey==='channel:'+c.id)?.focus({preventScroll:true});return;}if(!['ArrowDown','ArrowUp'].includes(event.key))return;event.preventDefault();const index=list.findIndex(item=>item.id===c.id)+(event.key==='ArrowDown'?1:-1);if(index<0||index>=list.length)return;const y=index*rowHeight;if(y<viewport.scrollTop)viewport.scrollTop=y;else if(y+rowHeight>viewport.scrollTop+viewport.clientHeight)viewport.scrollTop=y+rowHeight-viewport.clientHeight;renderGuide();const key=(event.target.classList.contains('favorite')?'favorite:':'channel:')+list[index].id;[...target.querySelectorAll('[data-focus-key]')].find(e=>e.dataset.focusKey===key)?.focus({preventScroll:true});scheduleGuide()});
   const track=el('div',null,'programme-track');const cached=guideCache.get(c.id);
   for(const cell of guideCells(cached?.programmes||[],start,duration)){
    const p=cell.programme,b=p?button(p.title?.trim()||'Untitled programme',()=>{dvr.programme(c,p,()=>tune(c))},'programme'+(Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now()?' live':'')):el('div',cached?'No EPG data':'Loading EPG…','programme epg-gap');
    b.style.left=(cell.start-start)/duration*100+'%';b.style.width=(cell.end-cell.start)/duration*100+'%';
-   if(p){enrichment.push({p,element:b});b.dataset.focusKey='programme:'+c.id+':'+p.start;b.title=(p.title?.trim()||'Untitled programme')+' · '+time(p.start)+'–'+time(p.end);b.append(el('small',time(p.start)+'–'+time(p.end)));b.addEventListener('focus',()=>metadata.show(p));b.addEventListener('pointerenter',()=>metadata.show(p))}else b.title=cached?'No EPG data for this time':'Loading EPG';track.append(b);
+   if(p){bindChannelActions(b,()=>openChannelActions(c,p));enrichment.push({p,element:b});b.dataset.focusKey='programme:'+c.id+':'+p.start;b.title=(p.title?.trim()||'Untitled programme')+' · '+time(p.start)+'–'+time(p.end);b.append(el('small',time(p.start)+'–'+time(p.end)));b.addEventListener('focus',()=>metadata.show(p));b.addEventListener('pointerenter',()=>metadata.show(p))}else b.title=cached?'No EPG data for this time':'Loading EPG';track.append(b);
   }
   if(Date.now()>=start&&Date.now()<start+duration){const line=el('div',null,'now-line');line.style.left=(Date.now()-start)/duration*100+'%';track.append(line)}row.append(track);target.append(row);
  }target.append(spacer(r.bottom));if(!list.length)target.append(el('p',selected==='favorites'?'No favorites yet. Use the star beside any channel.':'No channels match this view.'));$('channel-total').textContent=list.length+' channels · Scroll to browse';
