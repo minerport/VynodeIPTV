@@ -144,10 +144,10 @@ func (a *App) routes() http.Handler {
 	a.recordingPlaybackRoutes(m)
 	a.groupRoutes(m)
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]string{"status": "ok", "version": "0.16.3"})
+		send(w, 200, map[string]string{"status": "ok", "version": "0.16.4"})
 	})
 	m.HandleFunc("GET /api/v1/capabilities", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
-		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.16.3", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
+		send(w, 200, map[string]any{"apiVersion": 1, "version": "0.16.4", "demo": a.demo, "profiles": []string{"remux", "browser"}, "limitations": []string{"recovery re-prepares client on output generation changes", "one ingest per session", "no GPU transcoding yet"}})
 	}))
 	m.HandleFunc("GET /api/v1/channels", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
