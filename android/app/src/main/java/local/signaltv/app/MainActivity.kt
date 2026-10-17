@@ -67,6 +67,7 @@ class MainActivity: ComponentActivity() {
     private var connectionRetry:Job?=null
     private var busy by mutableStateOf(false)
     private var healthOpen by mutableStateOf(false)
+    private var qualityOpen by mutableStateOf(false)
     private var catalogMetrics by mutableStateOf("Catalog measurements pending")
     override fun onCreate(savedInstanceState: Bundle?){
         super.onCreate(savedInstanceState);secure=SecureProfile(this)
@@ -138,7 +139,8 @@ class MainActivity: ComponentActivity() {
     private fun startSlot(index:Int,c:Channel,repo:Repository){
         if(backgrounded || engines.containsKey(index) || slots[index]?.id!=c.id)return
         slotStatus[index]="Opening…"
-        engines[index]=PlaybackEngine(this,repo){slotStatus[index]=it;if(index==selectedSlot)status=it}.also{it.setAudible(false);it.start(c)}
+        val playbackRepo=if(repo.profile.mode=="server")ServerRepository(repo.profile.copy(streamProfile=companionQuality(PlaybackQuality(this,repo.profile).get())))else repo
+        engines[index]=PlaybackEngine(this,playbackRepo){slotStatus[index]=it;if(index==selectedSlot)status=it}.also{it.setAudible(false);it.start(c)}
         audio()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
@@ -196,6 +198,7 @@ class MainActivity: ComponentActivity() {
             }
         }
         if(settings)AlertDialog(onDismissRequest={settings=false},title={Text("Video wall")},text={Column{
+            TextButton(onClick={settings=false;qualityOpen=true}){Text("Playback quality")}
             TextButton(onClick={settings=false;healthOpen=true}){Text("Playback health")}
             Text("Focus a picture to hear it. Select for fullscreen. Back returns to the wall.")
             Row{listOf(2,4,6).forEach{n->TextButton(onClick={layout=n;if(selectedSlot>=n)selectSlot(0);saveScene();settings=false}){Text(if(layout==n)"✓ $n panels" else "$n panels")}}}
@@ -219,6 +222,7 @@ class MainActivity: ComponentActivity() {
         LaunchedEffect(profile){val p=profile?:return@LaunchedEffect;val cache=CatalogCache(this@MainActivity,p);var stamp=cache.modified();while(true){delay(60000);if(stamp!=cache.modified()){val entries=withContext(Dispatchers.IO){cache.load()};if(profile==p&&entries.isNotEmpty())channels=entries;stamp=cache.modified()}}}
 
         if(managingAccounts){Surface(Modifier.fillMaxSize()){Column(Modifier.padding(24.dp)){Setup()}};return}
+        if(qualityOpen)profile?.let{PlaybackQualityDialog(it){qualityOpen=false}}
         if(healthOpen)PlaybackHealthDialog(engines.map{(i,e)->(slots[i]?.name?:"Panel ${i+1}") to e},catalogMetrics){healthOpen=false}
         val c=current
         BackHandler(enabled=fullScreen || (!multiView && multiEnabled)){
@@ -301,7 +305,8 @@ class MainActivity: ComponentActivity() {
             var dailyChannels by remember{mutableStateOf(refreshPrefs.channels)}
             var dailyEpg by remember{mutableStateOf(refreshPrefs.epg)}
             AlertDialog(onDismissRequest={settings=false},title={Text("Connection settings")},text={Column(Modifier.heightIn(max=300.dp).verticalScroll(rememberScrollState())){
-                TextButton(onClick={settings=false;healthOpen=true}){Text("Playback health & performance")}
+                TextButton(onClick={settings=false;qualityOpen=true}){Text("Playback quality")}
+            TextButton(onClick={settings=false;healthOpen=true}){Text("Playback health & performance")}
                 TextButton(onClick={settings=false;appearanceOpen=true}){Text("Appearance Studio")}
                 TextButton(onClick={settings=false;tmdbOpen=true}){Text("Metadata · TMDB")}
                 Row{Checkbox(dailyChannels,{dailyChannels=it});Text("Refresh channels daily",Modifier.padding(top=14.dp))}

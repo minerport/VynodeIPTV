@@ -11,7 +11,7 @@
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
   <Date>2026-10-17</Date>
-  <Changes>0.16.4: Mobile browser polish with bottom navigation, compact playback controls, clearer typography and guide styling, and theme-aware panels. Desktop layout preserved. Android remains at 0.16.3.</Changes>
+  <Changes>0.16.5: Playback quality settings, server Data Saver conversion, browser and Android support reports, and Linux host CPU diagnostics. Quality settings apply to newly opened streams.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

@@ -92,8 +92,8 @@ func (a *App) startSession(owner string, c Channel, p Provider, profiles ...stri
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Session{ID: randomID(16), ChannelID: c.ID, State: "starting", owner: owner, provider: p.ID, lease: time.Now().Add(90 * time.Second), cancel: cancel, done: make(chan struct{})}
 	s.Profile = "remux"
-	if len(profiles) > 0 && profiles[0] == "browser" {
-		s.Profile = "browser"
+	if len(profiles) > 0 && (profiles[0] == "browser" || profiles[0] == "data-saver") {
+		s.Profile = profiles[0]
 	}
 	a.sessions[s.ID] = s
 	s.health.StartedAt = time.Now()
@@ -140,11 +140,16 @@ func (a *App) runSession(ctx context.Context, s *Session, c Channel, p Provider)
 			args = append(args, "-re", "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30", "-re", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-c:v", "libx264", "-threads", "2", "-preset", "ultrafast", "-tune", "zerolatency", "-g", "60", "-sc_threshold", "0", "-c:a", "aac", "-b:a", "96k")
 		} else {
 			args = append(args, "-rw_timeout", "12000000", "-protocol_whitelist", "http,tcp,crypto", "-i", inputURL, "-map", "0:v:0?", "-map", "0:a:0?")
-			if s.Profile == "browser" {
+			if s.Profile == "data-saver" {
+				args = append(args, dataSaverArgs()...)
+			} else if s.Profile == "browser" {
 				args = append(args, "-vf", "scale=w='min(1280,iw)':h=-2", "-r", "30", "-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-tune", "zerolatency", "-pix_fmt", "yuv420p", "-g", "60", "-sc_threshold", "0", "-c:a", "aac", "-ac", "2", "-b:a", "128k")
 			} else {
 				args = append(args, "-c", "copy")
 			}
+		}
+		if c.ProviderID == "demo" && s.Profile == "data-saver" {
+			args = append(args, dataSaverArgs()...)
 		}
 		args = append(args, "-f", "hls", "-hls_time", "2", "-hls_list_size", strconv.Itoa(timeshift.segments()), "-hls_delete_threshold", "3", "-hls_flags", "delete_segments+temp_file", "-hls_segment_filename", filepath.Join(dir, "segment-%06d.ts"), filepath.Join(dir, "live.m3u8"))
 		workerCtx, workerCancel := context.WithCancel(ctx)
@@ -327,4 +332,9 @@ func (a *App) close() {
 	for _, s := range all {
 		<-s.done
 	}
+}
+
+// Bound output bandwidth and dimensions without increasing source resolution.
+func dataSaverArgs() []string {
+	return []string{"-vf", "scale=w='min(854,iw)':h='min(480,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2", "-r", "25", "-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-tune", "zerolatency", "-pix_fmt", "yuv420p", "-b:v", "900k", "-maxrate", "1100k", "-bufsize", "2200k", "-g", "50", "-sc_threshold", "0", "-c:a", "aac", "-ac", "2", "-b:a", "96k"}
 }

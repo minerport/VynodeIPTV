@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicLong
 class PlaybackEngine(private val context: Context, private val repo: Repository, private val report: (String)->Unit) {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
     private val born=SystemClock.elapsedRealtime()
+    private val quality=PlaybackQuality(context,repo.profile).get()
     private val bytes=AtomicLong()
     private val frames=AtomicLong()
     private val headers=if(repo.profile.mode=="server")mapOf("Authorization" to "Bearer ${repo.profile.token}")else emptyMap()
@@ -34,7 +35,12 @@ class PlaybackEngine(private val context: Context, private val repo: Repository,
         val http=DefaultHttpDataSource.Factory().setConnectTimeoutMs(10000).setReadTimeoutMs(12000).setDefaultRequestProperties(headers)
             .setAllowCrossProtocolRedirects(repo.profile.mode=="direct" && repo.profile.allowHttp).setUserAgent("SignalTV/0.5").setTransferListener(transfers)
         return ExoPlayer.Builder(context).setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(http).setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(2)))
-            .setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(15000,30000,2000,4000).build()).build()
+            .setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(15000,30000,2000,4000).build()).build().also { p ->
+                if(repo.profile.mode=="direct")p.trackSelectionParameters=p.trackSelectionParameters.buildUpon().apply{
+                    if(quality=="data-saver"){setMaxVideoSize(854,480);setMaxVideoBitrate(1100000)}
+                    if(quality=="original")setForceHighestSupportedBitrate(true)
+                }.build()
+            }
     }
     var player by mutableStateOf(buildPlayer())
         private set
@@ -135,6 +141,7 @@ class PlaybackEngine(private val context: Context, private val repo: Repository,
             else->budget.stalled()
         }
         diagnostics=buildString{
+            appendLine("Quality: $quality · ${if(repo.profile.mode=="server")"server ${repo.profile.streamProfile}" else "direct provider playback"}")
             appendLine("${condition.label} · buffer ${sample.bufferedMs/1000}s")
             appendLine("Received ${sample.bytes/1024} KiB · video frames ${frames.get()} · dropped ${video?.droppedBufferCount?:0}")
             appendLine("Audio decoder buffers: ${watchedAudio?:"unavailable / muted"} · underruns $underruns")
@@ -143,6 +150,11 @@ class PlaybackEngine(private val context: Context, private val repo: Repository,
             append(events.snapshot().takeLast(8).joinToString("\n"))
         }
     }
+    fun supportReport():org.json.JSONObject = org.json.JSONObject()
+        .put("schemaVersion",1).put("quality",quality).put("mode",if(repo.profile.mode=="server")"companion" else "standalone")
+        .put("startupMs",startupMs?:org.json.JSONObject.NULL).put("receivedBytes",bytes.get()).put("videoFrames",frames.get())
+        .put("recoveries",totalRecoveries).put("audioUnderruns",underruns).put("bufferedMs",player.totalBufferedDuration.coerceAtLeast(0))
+        .put("droppedFrames",player.videoDecoderCounters?.droppedBufferCount?:org.json.JSONObject.NULL)
     private fun prepare(url: String){if(closed)return;monitor.reset();player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.playWhenReady=true}
     private fun recover(reason: String){
         if(closed||retry?.isActive==true||!player.playWhenReady)return

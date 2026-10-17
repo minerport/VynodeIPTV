@@ -90,3 +90,5 @@ main{padding-left:max(3vw,env(safe-area-inset-left));padding-right:max(3vw,env(s
 .channel-logo{width:32px;height:28px;object-fit:contain;flex:none;margin-right:6px;vertical-align:middle}
 .channel-actions{max-width:min(420px,90vw)}
 .channel-actions button{display:block;width:100%;margin:8px 0;text-align:left}
+
+.playback-diagnostics .panel{padding:16px}.playback-diagnostics .panel p{margin:5px 0;font-size:13px}.playback-diagnostics h3{margin-top:0}

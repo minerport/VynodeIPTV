@@ -19,6 +19,7 @@ fun bindPlaybackView(view:PlayerView,engine:PlaybackEngine?){
 }
 
 @Composable fun PlaybackHealthDialog(panels:List<Pair<String,PlaybackEngine>>,catalog:String,onDismiss:()->Unit){
+    val context=androidx.compose.ui.platform.LocalContext.current
     AlertDialog(onDismissRequest=onDismiss,title={Text("Playback health")},text={
         LazyColumn(Modifier.heightIn(max=400.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
             item{Text(catalog,style=MaterialTheme.typography.bodySmall)}
@@ -29,5 +30,10 @@ fun bindPlaybackView(view:PlayerView,engine:PlaybackEngine?){
             }}
             item{Text("Frame/decoder progress cannot detect a still image or silence encoded by the provider. Audio counters may be unavailable for passthrough.",style=MaterialTheme.typography.bodySmall)}
         }
-    },confirmButton={TextButton(onClick=onDismiss){Text("Close")}})
+    },dismissButton={TextButton(onClick={
+        val report=org.json.JSONObject().put("schemaVersion",1).put("streams",org.json.JSONArray(panels.map{it.second.supportReport()})).toString(2)
+        val clipboard=context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Vynode playback report",report))
+        android.widget.Toast.makeText(context,"Credential-free report copied",android.widget.Toast.LENGTH_SHORT).show()
+    }){Text("Copy support report")}},confirmButton={TextButton(onClick=onDismiss){Text("Close")}})
 }

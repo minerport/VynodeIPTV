@@ -1,3 +1,4 @@
+import {playbackReport} from './playback-diagnostics.js';
 // Call directly from the user's click: browsers require transient activation.
 export async function enterNativeFullscreen(host,video){
  let failure;
@@ -29,21 +30,25 @@ export class VideoWall {
   if(this.capacity===1)await this.clearTiles();
   const existing=this.tiles.find(t=>t.channel.id===channel.id);if(existing){this.select(existing);return;}
   if(this.tiles.length>=this.capacity)throw Error('Wall is full. Remove a tile or choose a larger layout.');
-  const session=await this.api('/playback/sessions','POST',{channelId:channel.id,profile:'browser'});
+  const requestedAt=Date.now();
+  const session=await this.api('/playback/sessions','POST',{channelId:channel.id,profile:this.quality||'browser'});
   const node=document.createElement('div'),video=document.createElement('video'),label=document.createElement('span');node.className='wall-tile';node.tabIndex=0;node.setAttribute('role','button');node.setAttribute('aria-label',channel.name+' — select audio; activate for fullscreen');video.playsInline=true;video.muted=true;label.textContent=channel.name;node.append(video,label);this.host.append(node);
-  const tile={node,video,label,channel,session,generation:-1,retries:0,lastTime:0,lastProgress:Date.now(),healthySince:0,retryAt:0,status:'Starting stream',hls:null,removed:false,polling:false};
+  const tile={requestedAt,firstFrameAt:0,bufferEvents:0,bufferMs:0,bufferStarted:0,reconnects:0,node,video,label,channel,session,generation:-1,retries:0,lastTime:0,lastProgress:Date.now(),healthySince:0,retryAt:0,status:'Starting stream',hls:null,removed:false,polling:false};
   node.onfocus=()=>this.select(tile);node.onpointerenter=()=>this.select(tile);node.onclick=()=>{this.select(tile);this.fullscreen();};node.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.select(tile);this.fullscreen();}if(e.key.startsWith('Arrow')){const columns=getComputedStyle(this.host).gridTemplateColumns.split(' ').length;const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-columns,ArrowDown:columns}[e.key];this.tiles[this.tiles.indexOf(tile)+delta]?.node.focus();e.preventDefault();}};
   video.addEventListener('webkitendfullscreen',()=>{if(this.selected===tile&&this.host.classList.contains('tile-fullscreen'))this.back();});
-  video.addEventListener('playing',()=>{tile.lastProgress=Date.now();});
+  video.addEventListener('playing',()=>{tile.lastProgress=Date.now();tile.firstFrameAt ||= Date.now();if(tile.bufferStarted){tile.bufferMs+=Date.now()-tile.bufferStarted;tile.bufferStarted=0;}});
+  video.addEventListener('waiting',()=>{if(!tile.firstFrameAt||tile.userPaused||this.suspended||tile.removed||tile.bufferStarted)return;tile.bufferEvents++;tile.bufferStarted=Date.now();});
+  video.addEventListener('pause',()=>{if(tile.bufferStarted){tile.bufferMs+=Date.now()-tile.bufferStarted;tile.bufferStarted=0;}});
   this.tiles.push(tile);this.select(tile);this.render();if(session.state==='playing')this.attach(tile);
  });}
+ diagnostics(){return {schemaVersion:1,streams:this.tiles.map(t=>playbackReport(t))};}
  destroyMedia(t){t.hls?.destroy();t.hls=null;t.video.pause();t.video.removeAttribute('src');t.video.load();}
  attach(t){if(t.removed||this.suspended)return;this.destroyMedia(t);t.generation=t.session.generation;t.lastTime=0;t.lastProgress=Date.now();t.healthySince=0;
   const instance=new Hls({liveSyncDurationCount:3,maxBufferLength:24,backBufferLength:6,xhrSetup:(xhr,url)=>{const u=new URL(url,location.href);if(u.origin!==location.origin||!u.pathname.startsWith('/media/'))throw Error('Unexpected media address');xhr.setRequestHeader('Authorization','Bearer '+this.auth());}});t.hls=instance;
   instance.on(Hls.Events.MANIFEST_PARSED,()=>{if(t.removed||t.hls!==instance||t.userPaused)return;t.video.play().catch(()=>{t.status='Select Enable audio / play to begin';this.onChange(this);});});
   instance.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal&&t.hls===instance)this.recover(t,'Browser decoder or network interrupted');});instance.loadSource(t.session.mediaUrl);instance.attachMedia(t.video);
  }
- recover(t,reason){if(t.retryAt||t.removed)return;if(t.retries>=5){t.status='Recovery limit reached. Remove this tile and select the channel to retry.';this.destroyMedia(t);this.onChange(this);return;}t.healthySince=0;t.retries++;t.status=reason+' · retry '+t.retries+'/5';t.retryAt=Date.now()+Math.min(16000,1000*2**(t.retries-1));this.onChange(this);}
+ recover(t,reason){if(t.retryAt||t.removed)return;if(t.retries>=5){t.status='Recovery limit reached. Remove this tile and select the channel to retry.';this.destroyMedia(t);this.onChange(this);return;}t.healthySince=0;t.retries++;t.reconnects=(t.reconnects||0)+1;t.status=reason+' · retry '+t.retries+'/5';t.retryAt=Date.now()+Math.min(16000,1000*2**(t.retries-1));this.onChange(this);}
  async poll(){await Promise.all(this.tiles.map(async t=>{if(t.polling||t.removed)return;t.polling=true;try{
   const s=await this.api('/playback/sessions/'+t.session.id+'/heartbeat','POST',{});if(t.removed)return;t.session=s;
   if(this.suspended)return;
