@@ -62,7 +62,7 @@ class GuideUiState {
     val focusedProgramme=mutableStateOf<Programme?>(null)
     val selected=mutableStateOf("all")
     val query=mutableStateOf("")
-    val start=mutableLongStateOf(System.currentTimeMillis()/1800000*1800000)
+    val start=mutableLongStateOf(System.currentTimeMillis())
     val groups=mutableStateOf<List<CustomGroup>>(emptyList())
     val preferences=mutableStateOf(GuidePreferences())
     val cacheWindows=mutableStateMapOf<String,Long>()
@@ -111,7 +111,7 @@ class GuideUiState {
 
     val cache=state.cache
     val windowStart=start/21600000*21600000
-    fun shiftTime(delta:Long){val current=System.currentTimeMillis();start=(start+delta).coerceIn(current-7*86400000,current+7*86400000)}
+    fun shiftTime(delta:Long){val current=System.currentTimeMillis();start=guideStartAfterShift(start,delta,current)}
     val providerGroups=remember(channels){channels.groupBy { it.groupId }}
     val custom=groups.find { "custom:"+it.id==selected }
     val filtered=remember(channels,query,selected,groups,preferences.favorites){channels.filter { (selected=="all" || (selected=="favorites" && it.id in preferences.favorites) || (custom?.channelIds?.contains(it.id) ?: ("provider:"+it.groupId==selected))) && it.name.contains(query,true) }}
@@ -230,8 +230,8 @@ class GuideUiState {
                             DropdownMenuItem(text={Text("Guide appearance")},onClick={menu=false;appearance=true})
                             DropdownMenuItem(text={Text("Channel groups")},onClick={menu=false;navigationOpen=!navigationOpen})
                             if(custom!=null)DropdownMenuItem(text={Text("Edit group")},onClick={menu=false;editing=custom})
-                            DropdownMenuItem(text={Text("Earlier")},onClick={menu=false;shiftTime(-1800000)})
-                            DropdownMenuItem(text={Text("Jump to now")},onClick={menu=false;start=System.currentTimeMillis()/1800000*1800000})
+                            DropdownMenuItem(text={Text("Back toward now")},onClick={menu=false;shiftTime(-1800000)})
+                            DropdownMenuItem(text={Text("Jump to now")},onClick={menu=false;start=System.currentTimeMillis()})
                             DropdownMenuItem(text={Text("Later")},onClick={menu=false;shiftTime(1800000)})
                         }
                     }
@@ -247,25 +247,29 @@ class GuideUiState {
                     Row(Modifier.fillMaxWidth().height(rowHeight).clipToBounds(),horizontalArrangement=Arrangement.spacedBy(3.dp)){
                         Row(Modifier.width(170.dp)){
                             IconButton(onClick={savePreferences(preferences.copy(favorites=if(c.id in preferences.favorites)preferences.favorites-c.id else preferences.favorites+c.id))},modifier=Modifier.width(40.dp).semantics{contentDescription=if(c.id in preferences.favorites)"Remove ${c.name} from favorites" else "Add ${c.name} to favorites"}){Text(if(c.id in preferences.favorites)"★" else "☆",color=TvPalette.Accent)}
-                            Box(Modifier.weight(1f)){GuideButton(c.name,density=density,logo=c.logo,onLongPress={contextMenu(c,cache[c.id]?.second?.firstOrNull{it.start<=now&&it.end>now})},modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
+                            Box(Modifier.weight(1f)){GuideButton(c.name,flat=true,channelLabel=true,density=density,logo=c.logo,onLongPress={contextMenu(c,cache[c.id]?.second?.firstOrNull{it.start<=now&&it.end>now})},modifier=if(c.id==state.returnChannel.value)Modifier.focusRequester(returnFocus)else if(c.id==filtered.firstOrNull()?.id)Modifier.focusRequester(firstChannel)else Modifier,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.start<=now && it.end>now}}){play(c)}}
                         }
-                        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().clipToBounds().background(TvPalette.Track,RoundedCornerShape(6.dp))){
+                        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight().clipToBounds().background(Color.Transparent)){
                             val width=maxWidth
                             val timelineFocus=remember{FocusRequester()}
                             var timelineFocused by remember{mutableStateOf(false)}
                             fun describeTime(){state.focusedChannel.value=c;state.focusedProgramme.value=cache[c.id]?.second?.firstOrNull{it.end>start}}
                             val pixels=with(LocalDensity.current){width.toPx()}
                             val dragState=rememberDraggableState{delta->shiftTime((-delta/pixels*5400000).toLong())}
-                            Box(Modifier.fillMaxSize().border(if(timelineFocused)2.dp else 0.dp,if(timelineFocused)TvPalette.Accent else Color.Transparent).focusRequester(timelineFocus).onFocusChanged{timelineFocused=it.isFocused;if(it.isFocused)describeTime()}.onPreviewKeyEvent{event->
+                            Box(Modifier.fillMaxSize().focusRequester(timelineFocus).onFocusChanged{timelineFocused=it.isFocused;if(it.isFocused)describeTime()}.onPreviewKeyEvent{event->
                                 if(event.type==KeyEventType.KeyDown && (event.key==Key.DirectionLeft || event.key==Key.DirectionRight)){
-                                    shiftTime(if(event.key==Key.DirectionRight)1800000 else -1800000);describeTime();timelineFocus.requestFocus();true
+                                    val visibleProgrammes=cache[c.id]?.second.orEmpty().filter{it.end>start&&it.start<start+5400000}.sortedBy{it.start}
+                                    val index=visibleProgrammes.indexOf(state.focusedProgramme.value)
+                                    if((event.key==Key.DirectionRight&&index==visibleProgrammes.lastIndex)||(event.key==Key.DirectionLeft&&index==0&&start>System.currentTimeMillis()+1000)){
+                                        shiftTime(if(event.key==Key.DirectionRight)1800000 else -1800000);describeTime();true
+                                    }else false
                                 }else false
-                            }.guideSelectKeys(watch={play(c)},menu={contextMenu(c,state.focusedProgramme.value)}).focusable().draggable(dragState,Orientation.Horizontal).semantics{contentDescription="${c.name} programme timeline. Left and right browse times. Select plays live. Hold Select for actions."}){
+                            }.guideSelectKeys(watch={play(c)},menu={contextMenu(c,state.focusedProgramme.value)}).draggable(dragState,Orientation.Horizontal).semantics{contentDescription="${c.name} programme timeline. Left and right browse times. Select plays live. Hold Select for actions."}){
                             guideCells(cache[c.id]?.second.orEmpty(),start,start+5400000).forEach{cell->
                                 val left=(cell.start-start)/5400000f;val right=(cell.end-start)/5400000f;val p=cell.programme
-                                Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp).clipToBounds().border(if(Appearance.current.borders=="strong")2.dp else 1.dp,TvPalette.GuideBorder,RoundedCornerShape(Appearance.current.radius.dp))){
+                                Box(Modifier.offset(x=width*left).width(width*(right-left)).fillMaxHeight().padding(end=2.dp).clipToBounds()){
                                     if(p==null)Text(if(cache.containsKey(c.id))"No EPG data" else "Loading EPG…",Modifier.fillMaxSize().background(TvPalette.Track).padding(8.dp),color=TvPalette.Muted,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
-                                    else GuideButton(p.title.ifBlank{"Untitled programme"},p.start<=now && p.end>now,onLongPress={contextMenu(c,p)},density=density,modifier=Modifier.fillMaxHeight(),metadata=if(artwork && width*(right-left)>=110.dp)metadata[programmeMetadataKey(p)]?.second else null,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
+                                    else GuideButton(p.title.ifBlank{"Untitled programme"},flat=true,onLongPress={contextMenu(c,p)},density=density,modifier=Modifier.fillMaxHeight(),metadata=if(artwork && width*(right-left)>=110.dp)metadata[programmeMetadataKey(p)]?.second else null,onFocused={state.focusedChannel.value=c;state.focusedProgramme.value=p}){play(c)}
                                 }
                             }
                             if(now in start..start+5400000)Box(Modifier.offset(x=width*((now-start)/5400000f)).width(2.dp).fillMaxHeight().background(TvPalette.Signal))
@@ -301,7 +305,7 @@ class GuideUiState {
     if(globalSearch)SearchEverywhere(repo,channels,cache.mapValues{it.value.second},dismiss={globalSearch=false}){hit->
         globalSearch=false
         if(hit.kind.equals("recording",true))context.startActivity(android.content.Intent(context,RecordingActivity::class.java).putExtra("account",repo.profile.accountKey()))
-        else hit.channel?.let{c->selected="all";query="";navigationOpen=false;hit.start?.let{start=it};state.returnChannel.value=c.id;state.focusedChannel.value=c}
+        else hit.channel?.let{c->selected="all";query="";navigationOpen=false;hit.start?.let{start=maxOf(it,System.currentTimeMillis())};state.returnChannel.value=c.id;state.focusedChannel.value=c}
     }
     if(recentOpen)AlertDialog(onDismissRequest={recentOpen=false},title={Text("Recent channels")},text={
         val recent=experience.recent().mapNotNull{id->channels.find{it.id==id}}
@@ -345,13 +349,13 @@ class GuideUiState {
     editing?.let{g->GroupEditor(g,channels,onDismiss={editing=null},onSave={name,ids->scope.launch{try{store.save(g.copy(name=name,channelIds=ids));groups=store.load();editing=null;message="Group saved"}catch(e:Exception){message=e.message?:"Could not save group"}}},onDelete={scope.launch{try{store.delete(g.id);groups=store.load();selected="all";editing=null}catch(e:Exception){message=e.message?:"Could not delete group"}}})}
 }
 
-@Composable private fun GuideButton(text: String, selected: Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, density:GuideDensity=GuideDensity.COMPACT, logo:String="", onLongPress:(()->Unit)?=null, onFocused:()->Unit={}, action: ()->Unit){
+@Composable private fun GuideButton(text: String, selected: Boolean=false, flat:Boolean=false, channelLabel:Boolean=false, modifier:Modifier=Modifier, metadata:org.json.JSONObject?=null, density:GuideDensity=GuideDensity.COMPACT, logo:String="", onLongPress:(()->Unit)?=null, onFocused:()->Unit={}, action: ()->Unit){
     var focused by remember{mutableStateOf(false)}
     val look=Appearance.current
-    val fill=focused&&look.focus=="fill"
-    val shape=RoundedCornerShape(look.radius.dp)
+    val fill=focused&&(flat||look.focus=="fill")
+    val shape=RoundedCornerShape(if(flat)0.dp else look.radius.dp)
     val keys=if(onLongPress!=null)Modifier.guideSelectKeys(action,onLongPress)else Modifier
-    Row(modifier.then(keys).fillMaxWidth().heightIn(min=36.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.border(if(focused&&look.focus=="glow")3.dp else if(focused||look.borders=="strong")2.dp else 1.dp,if(focused)TvPalette.Accent else TvPalette.GuideBorder,shape).background(if(fill)TvPalette.Accent else if(selected)TvPalette.Live else TvPalette.Programme,shape).combinedClickable(onClick=action,onLongClick=onLongPress,onLongClickLabel=if(onLongPress!=null)"Channel actions" else null,role=androidx.compose.ui.semantics.Role.Button).padding(horizontal=8.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){
+    Row(modifier.then(keys).fillMaxWidth().heightIn(min=36.dp).onFocusChanged{focused=it.isFocused;if(it.isFocused)onFocused()}.then(if(flat)Modifier.border(if(focused)2.dp else 0.dp,if(focused)TvPalette.Accent else Color.Transparent,shape) else Modifier.border(if(focused&&look.focus=="glow")3.dp else if(focused||look.borders=="strong")2.dp else 1.dp,if(focused)TvPalette.Accent else TvPalette.GuideBorder,shape)).background(if(fill)TvPalette.Accent else if(channelLabel)Color.Transparent else if(selected)TvPalette.Live else TvPalette.Programme,shape).combinedClickable(onClick=action,onLongClick=onLongPress,onLongClickLabel=if(onLongPress!=null)"Channel actions" else null,role=androidx.compose.ui.semantics.Role.Button).padding(horizontal=8.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){
         if(logo.isNotBlank())ChannelLogo(logo,Modifier.width(28.dp).height(26.dp).padding(end=4.dp))
         val artwork=metadataArtwork(metadata)
         if(artwork!=null)MetadataArtwork(artwork,Modifier.width(24.dp).height(34.dp).padding(end=4.dp))

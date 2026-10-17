@@ -154,7 +154,7 @@ class MainActivity: ComponentActivity() {
         scope.launch{previous?.join();closing?.join();if(requests.accepts(ticket) && slots[index]?.id==c.id)startSlot(index,c,repo)}
     }
     override fun onStop(){backgrounded=true;requests.suspendAll();val jobs=engines.values.map{it.close()};trackClose(scope.launch{jobs.joinAll()});engines.clear();super.onStop()}
-    override fun onStart(){super.onStart();guideState.start.longValue=System.currentTimeMillis()/1800000*1800000;if(backgrounded){backgrounded=false;val epoch=requests.epoch;scope.launch{closing?.join();if(backgrounded || epoch!=requests.epoch)return@launch;ensureStreams()}}}
+    override fun onStart(){super.onStart();guideState.start.longValue=System.currentTimeMillis();if(backgrounded){backgrounded=false;val epoch=requests.epoch;scope.launch{closing?.join();if(backgrounded || epoch!=requests.epoch)return@launch;ensureStreams()}}}
     override fun onDestroy(){scope.cancel();super.onDestroy()}
     @Composable private fun Video(index:Int,modifier:Modifier=Modifier){
         AndroidView(factory={PlayerView(it).apply{
@@ -225,7 +225,6 @@ class MainActivity: ComponentActivity() {
             if(fullScreen){if(!multiEnabled)current?.let{guideState.returnChannel.value=it.id;guideState.navigationOpen.value=false};fullScreen=false;multiView=multiEnabled;audio()} else if(multiEnabled){multiView=true}
         }
         if(c!=null && fullScreen){
-            var overlay by remember(c.id){mutableStateOf(true)}
             var liveProgrammes by remember(c.id){mutableStateOf(guideState.cache[c.id]?.second.orEmpty())}
             var liveNow by remember(c.id){mutableLongStateOf(System.currentTimeMillis())}
             LaunchedEffect(c.id,repository){
@@ -238,17 +237,13 @@ class MainActivity: ComponentActivity() {
                     delay(30000)
                 }
             }
-            LaunchedEffect(c.id){delay(3500);overlay=false}
-            Box(Modifier.fillMaxSize()){
-                AndroidView(factory={PlayerView(it).apply{
-                    bindPlaybackView(this,engine);keepScreenOn=true;useController=true;controllerShowTimeoutMs=3500
-                    setControllerVisibilityListener(PlayerView.ControllerVisibilityListener{visibility->overlay=visibility==android.view.View.VISIBLE})
-                    requestFocus()
-                }},update={bindPlaybackView(it,engine)},onRelease={bindPlaybackView(it,null)},modifier=Modifier.fillMaxSize())
-                if(overlay)Column(Modifier.fillMaxWidth().background(Color(0xBB101216)).padding(16.dp)){
-                    Text(c.name,style=MaterialTheme.typography.titleMedium,color=Color.White);Text(status,style=MaterialTheme.typography.bodySmall,color=Color.White);Text(currentProgramme(liveProgrammes,liveNow)?.title?:"No EPG data",style=MaterialTheme.typography.bodySmall,color=Color.White)
-                }
-            };return
+            FullscreenOverlay(c,liveProgrammes,liveNow,
+                channels=channels, recent=profile?.let{GuideExperience(this,it).recent()}.orEmpty(),
+                cached=guideState.cache.mapValues{it.value.second},
+                onGuide={guideState.returnChannel.value=c.id;guideState.navigationOpen.value=false;fullScreen=false;multiView=multiEnabled;audio()},
+                onTune={play(it);fullScreen=true;multiView=false},
+                video={AndroidView(factory={PlayerView(it).apply{bindPlaybackView(this,engine);keepScreenOn=true;useController=false}},update={bindPlaybackView(it,engine)},onRelease={bindPlaybackView(it,null)},modifier=Modifier.fillMaxSize())})
+            return
         }
         if(multiView){MultiView();return}
         var settings by remember{mutableStateOf(false)}

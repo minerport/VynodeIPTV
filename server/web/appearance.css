@@ -42,3 +42,9 @@ html[data-focus=fill] .programme:focus-visible .programme-facts,html[data-focus=
 html[data-layout=wall] .watch{display:block}html[data-layout=wall] .watch-info{display:none}html[data-layout=wall] #wall:not(.expanded):not(:fullscreen){height:58vh;max-height:680px;aspect-ratio:auto}html[data-layout=wall] #guide-viewport{height:35vh}
 
 body.wall-destination .live-content{display:block!important}body.wall-destination .watch{display:block!important}body.wall-destination .watch-info{display:none}body.wall-destination #wall:not(.expanded):not(:fullscreen){height:58vh;max-height:680px;aspect-ratio:auto}body.wall-destination #guide-viewport{height:35vh}
+
+/* Flat, aligned guide rows; narrow gaps separate programmes. */
+html[data-palette] .guide-row .channel-cell,html[data-palette] .guide-row .channel-name{background:transparent;border:0;border-radius:0;box-shadow:none}
+html[data-palette] .guide-row .programme,html[data-palette] .guide-row .programme-track{border:0;border-radius:0;box-shadow:none}
+html[data-palette] .guide-row:focus-within{background:var(--a-live)}
+html[data-palette] .guide-row .programme:focus-visible,html[data-palette] .guide-row .channel-name:focus-visible{background:var(--a-accent);color:var(--a-onAccent);outline:0}
