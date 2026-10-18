@@ -5,7 +5,7 @@
   <Registry>https://github.com/minerport/VynodeIPTV/pkgs/container/vynodeiptv</Registry>
   <Network>bridge</Network>
   <Shell>sh</Shell>
-  <Icon>https://raw.githubusercontent.com/minerport/VynodeIPTV/main/assets/vynodeiptv.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/minerport/VynodeIPTV/main/assets/vynodeiptv.png</Icon>
   <ReadMe>https://raw.githubusercontent.com/minerport/VynodeIPTV/main/docs/UNRAID.md</ReadMe>
   <ExtraSearchTerms>iptv xtream epg television android shield video wall</ExtraSearchTerms>
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>

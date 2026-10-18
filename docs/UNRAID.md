@@ -102,3 +102,13 @@ Automatic HTTP fallback is separate from Allow HTTP streams, off by default, and
 Before updating an existing container, create `/mnt/user/recordings/vynodeiptv` writable by UID/GID 10001 using the command above. In **Docker → VynodeIPTV → Edit → Add another Path**, map that host folder to container path **`/recordings`**, read/write. Apply with repository `ghcr.io/minerport/vynodeiptv:0.11.0` (pinned) or `:latest`. Preserve the existing `/config` and `/transcode` mappings.
 
 Open **Recordings** in the dashboard to schedule and play recordings. The updated APK supports both server recordings and independent local recording on Android. See [built-in recording and current limitations](RECORDING.md). Do not delete the recordings host folder when reinstalling or rolling back.
+
+## Missing Docker icon on an existing installation
+
+The published template supplies a 256 × 256 PNG icon. For a manually created container or an older saved template, open **Docker → VynodeIPTV → Edit**, enable **Advanced View**, and set **Icon URL** to:
+
+```text
+https://raw.githubusercontent.com/minerport/VynodeIPTV/main/assets/vynodeiptv.png
+```
+
+Apply the change and refresh the Docker page. Keep all existing path, port and account settings. Updating the container image alone does not replace a manually saved Icon URL. No app data reset or reinstall is needed.
