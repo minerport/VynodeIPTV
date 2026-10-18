@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +23,37 @@ var sportsDataCache = struct {
 	slots map[string]sportsSlot
 }{slots: map[string]sportsSlot{}}
 var sportsRequests = make(chan struct{}, 4)
+
+var sportsSortPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]{0,39}\.[a-zA-Z][a-zA-Z0-9]{0,49}:(asc|desc)$`)
+
+func sportsPlayerQuery(address string, q url.Values) (string, error) {
+	u, err := url.Parse(address)
+	if err != nil {
+		return "", err
+	}
+	p := u.Query()
+	if s := q.Get("sort"); s != "" {
+		if !sportsSortPattern.MatchString(s) {
+			return "", fmt.Errorf("Invalid statistic")
+		}
+		p.Set("sort", s)
+	}
+	if s := q.Get("page"); s != "" {
+		n, e := strconv.Atoi(s)
+		if e != nil || n < 1 || n > 100 {
+			return "", fmt.Errorf("Invalid page")
+		}
+		p.Set("page", s)
+	}
+	if s := q.Get("seasontype"); s != "" {
+		if s != "1" && s != "2" && s != "3" {
+			return "", fmt.Errorf("Invalid season phase")
+		}
+		p.Set("seasontype", s)
+	}
+	u.RawQuery = p.Encode()
+	return u.String(), nil
+}
 
 func sportsDataURL(kind, league, team, season string, now time.Time) (string, time.Duration, error) {
 	path, ok := sportsPaths[league]
@@ -47,6 +79,23 @@ func sportsDataURL(kind, league, team, season string, now time.Time) (string, ti
 		ttl = time.Minute
 	case "leaders":
 		base = "https://site.api.espn.com/apis/site/v3/sports/" + path + "/leaders"
+	case "players":
+		if team == "" {
+			base = "https://site.web.api.espn.com/apis/common/v3/sports/" + path + "/statistics/byathlete"
+			params.Set("limit", "50")
+		} else {
+			valid := false
+			for _, t := range interestCatalog.Teams {
+				if t.ID == team && t.League == league {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return "", 0, fmt.Errorf("Unknown team")
+			}
+			base += "/teams/" + strings.Split(team, ":")[1] + "/athletes/statistics"
+		}
 	case "athlete":
 		if len(team) == 0 || len(team) > 10 || strings.IndexFunc(team, func(r rune) bool { return r < '0' || r > '9' }) >= 0 {
 			return "", 0, fmt.Errorf("Invalid athlete")
@@ -106,7 +155,7 @@ func readSportsData(address, kind string) (json.RawMessage, error) {
 		return nil, fmt.Errorf("Source unavailable")
 	}
 	limit := 2 * 1024 * 1024
-	if kind == "leaders" {
+	if kind == "leaders" || kind == "players" {
 		limit = 8 * 1024 * 1024
 	}
 	b, err := io.ReadAll(io.LimitReader(response.Body, int64(limit+1)))
@@ -118,6 +167,12 @@ func readSportsData(address, kind string) (json.RawMessage, error) {
 		return nil, fmt.Errorf("Invalid source data")
 	}
 	key := map[string]string{"standings": "children", "scoreboard": "events", "schedule": "events", "statistics": "results", "leaders": "leaders", "athlete": "categories"}[kind]
+	if kind == "players" {
+		key = "athletes"
+		if _, ok := root["results"]; ok {
+			key = "results"
+		}
+	}
 	if _, ok := root[key]; !ok {
 		return nil, fmt.Errorf("Data unavailable")
 	}
@@ -156,6 +211,9 @@ func (a *App) sportsExplorerRoutes(m *http.ServeMux) {
 		q := r.URL.Query()
 		kind := q.Get("kind")
 		address, ttl, err := sportsDataURL(kind, q.Get("league"), q.Get("team"), q.Get("season"), time.Now())
+		if err == nil && kind == "players" {
+			address, err = sportsPlayerQuery(address, q)
+		}
 		if err != nil {
 			fail(w, 400, err.Error())
 			return

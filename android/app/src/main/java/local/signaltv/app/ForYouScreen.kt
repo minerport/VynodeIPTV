@@ -38,7 +38,7 @@ import java.time.format.DateTimeFormatter
  val sportsStore=remember(repo.profile){SportsStore(context,repo.profile)}
  var sports by remember(repo.profile){mutableStateOf<Map<String,SportsLeague>>(emptyMap())};var sportsErrors by remember{mutableStateOf(setOf<String>())}
  LaunchedEffect(settings.teams,sportsStore){sportsErrors=emptySet();val leagues=catalog.teams.filter{it.id in settings.teams}.map{it.league}.distinct();while(true){for(league in leagues){try{sports=sports+ (league to sportsStore.load(league));sportsErrors=sportsErrors-league}catch(e:CancellationException){throw e}catch(_:Exception){sports=sports-league;sportsErrors=sportsErrors+league}};delay(900000)}}
- var exploring by remember{mutableStateOf(false)}
+ var exploring by remember{mutableStateOf(false)};var sportsTab by remember{mutableStateOf("Games")}
  var gameData by remember(repo.profile){mutableStateOf<Map<String,List<SportsGame>>>(emptyMap())};var gameErrors by remember{mutableStateOf(setOf<String>())}
  LaunchedEffect(settings.teams,sportsStore){val leagues=catalog.teams.filter{it.id in settings.teams}.map{it.league}.distinct();while(true){for(l in leagues){try{val board=try{sportsGames(sportsStore.data("scoreboard",l),l)}catch(e:CancellationException){throw e}catch(_:Exception){emptyList()};val scheduled=mutableListOf<SportsGame>();var success=board.isNotEmpty();for(t in catalog.teams.filter{it.id in settings.teams&&it.league==l}){try{scheduled+=sportsGames(sportsStore.data("schedule",l,t.id),l,true);success=true}catch(e:CancellationException){throw e}catch(_:Exception){}};check(success);gameData=gameData+(l to sportsMerge(scheduled,board));gameErrors=gameErrors-l}catch(e:CancellationException){throw e}catch(_:Exception){gameErrors=gameErrors+l;gameData=gameData-l}};delay(60000)}}
  BackHandler{guide()}
@@ -53,7 +53,7 @@ import java.time.format.DateTimeFormatter
   if(loaded){
    if(error.isNotBlank())item{Text(error)}
    if(settings.teams.isEmpty()&&settings.genres.isEmpty()&&settings.city.isBlank()&&settings.localChannels.isEmpty())item{Text("Choose Edit interests to add teams, your hometown and favorite genres.")}
-   item{TextButton(onClick={exploring=true}){Text("Explore sports statistics, comparisons & schedules")}}
+   item{LazyRow{items(listOf("Games","Teams","Standings","Players","Compare")){tab->TextButton(onClick={sportsTab=tab;exploring=true}){Text(tab)}}}}
    if(settings.teams.isNotEmpty())item{SportsOverview(catalog,settings.teams,sports,sportsErrors)}
    if(settings.teams.isNotEmpty())item{SportsGamesShelf(sportsTeamGames(gameData.values.flatten(),settings.teams,now).distinctBy{it.id},gameErrors,catalog,channels.filter{"provider:"+it.groupId !in state.preferences.value.hiddenGroups},hits,sports,now,play)}
    for((section,title) in listOf("local" to "Around home","genres" to "Your genres")){
@@ -75,7 +75,7 @@ import java.time.format.DateTimeFormatter
    item{Text("Matches use provider EPG and may include replays or studio shows. Up to 40 listings per section. Emblems: ESPN; marks belong to their teams.",color=TvPalette.Muted,style=MaterialTheme.typography.bodySmall)}
   }
  }
- if(exploring)SportsExplorerScreen(sportsStore,catalog,settings.teams){exploring=false}
+ if(exploring)SportsExplorerScreen(sportsStore,catalog,settings.teams,sportsTab){exploring=false}
  if(editing)InterestEditor(settings,catalog,channels,store,{editing=false},{editing=false;revision++})
 }
 @Composable private fun InterestEditor(initial:InterestSettings,catalog:InterestCatalog,channels:List<Channel>,store:InterestStore,dismiss:()->Unit,saved:()->Unit){
@@ -97,9 +97,9 @@ import java.time.format.DateTimeFormatter
  var detail by remember{mutableStateOf("")}
  Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
  Text("Sports center",style=MaterialTheme.typography.titleLarge)
- Text("Season records and scoring · ESPN · Separate from air dates and live scores",style=MaterialTheme.typography.bodySmall)
+ Text("Your teams · ESPN season records",style=MaterialTheme.typography.bodySmall)
  LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp)){
-  items(catalog.teams.filter{it.id in selected},key={it.id}){t->OutlinedButton(onClick={detail=t.id}){Column(Modifier.width(230.dp)){Text(t.name);Text(sportsCompact(data[t.league]?.rows?.find{it.id==t.id}),maxLines=2,style=MaterialTheme.typography.bodySmall)}}}
+  items(catalog.teams.filter{it.id in selected},key={it.id}){t->OutlinedButton(onClick={detail=t.id}){Column(Modifier.width(230.dp)){Text(t.name);Text(data[t.league]?.rows?.find{it.id==t.id}?.stats?.find{it.key=="overall"}?.value?:"View statistics",maxLines=1,style=MaterialTheme.typography.bodySmall)}}}
  }
  Row{for(league in catalog.teams.filter{it.id in selected}.map{it.league}.distinct())TextButton(onClick={detail=league}){Text(league+" standings")}}
  if(errors.isNotEmpty())Text("Stats temporarily unavailable: "+errors.joinToString()+". Guide and playback remain available.",style=MaterialTheme.typography.bodySmall)
@@ -123,10 +123,10 @@ import java.time.format.DateTimeFormatter
  Text(if(upcoming)"Coming up · all scheduled games" else "Live & recent",style=MaterialTheme.typography.titleMedium)
  val sectionGames=games.filter{(it.state=="pre"||it.start>now)==upcoming}
  if(sectionGames.isEmpty())Text(if(upcoming)"No upcoming games currently listed by ESPN." else "No live or recent games.")
- LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp)){items(sectionGames.sortedWith(compareBy<SportsGame>{!sportsLive(it,now)}.thenBy{it.start}),key={it.id}){g->OutlinedCard(onClick={chosen=g},modifier=Modifier.width(330.dp).heightIn(min=280.dp)){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
- Text(sportsStatus(g,now),style=MaterialTheme.typography.labelMedium);Text(g.name,style=MaterialTheme.typography.titleMedium)
+ LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp)){items(sectionGames.sortedWith(compareBy<SportsGame>{!sportsLive(it,now)}.thenBy{it.start}),key={it.id}){g->OutlinedCard(onClick={chosen=g},modifier=Modifier.width(310.dp).heightIn(min=170.dp)){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+ Text(sportsStatus(g,now),style=MaterialTheme.typography.labelMedium)
  Text(if(g.timeValid)"ESPN · "+Instant.ofEpochMilli(g.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE MMM d HH:mm"))else "Start time TBD")
- for(t in g.teams){Text(t.name+(if(g.state!="pre")" · "+t.score else ""));Text(sportsCompact(stats[g.league]?.rows?.find{it.id==t.id}),style=MaterialTheme.typography.bodySmall)}
+ for(t in g.teams){Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){catalog.teams.find{it.id==t.id}?.let{ChannelLogo(it.logo,Modifier.size(30.dp))};Text(t.name,Modifier.weight(1f).padding(horizontal=8.dp),maxLines=1,overflow=TextOverflow.Ellipsis);Text(if(g.state!="pre")t.score else stats[g.league]?.rows?.find{it.id==t.id}?.stats?.find{it.key=="overall"}?.value.orEmpty(),style=MaterialTheme.typography.labelMedium)}}
  Text("Select for possible channels",style=MaterialTheme.typography.labelSmall)
  }}}}
  }

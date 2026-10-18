@@ -1,5 +1,7 @@
 # For You
 
+For the current sports interface and coverage, see [Sports hub 0.19.0](SPORTS-HUB.md). The versioned sections below describe earlier releases.
+
 Open **For you** in the browser navigation or the Android guide menu. Choose **Edit interests**, then select teams, enter your city/state, pick genres, and optionally select specific local stations. Save once; preferences survive restarts and logout. Android text fields require Select before editing, and checkboxes remain in their list after a toggle.
 
 - **Your teams:** current and upcoming programmes that mention a selected team. NFL, NBA, MLB, NHL and MLS are included (154 teams). Full team names match directly; short nicknames require league/sport context to reduce ambiguous matches. Team emblems load from ESPN with abbreviation fallbacks.
