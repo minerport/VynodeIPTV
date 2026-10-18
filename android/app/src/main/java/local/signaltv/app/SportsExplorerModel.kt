@@ -46,3 +46,5 @@ fun sportsTrimLeaders(data:JSONObject):JSONObject{
  if(source!=null)for(j in 0 until source.length()){val v=source.getJSONObject(j);val row=JSONObject();for(k in listOf("value","displayValue"))if(v.has(k))row.put(k,v.get(k));for(k in listOf("athlete","team")){val item=v.optJSONObject(k);if(item!=null)row.put(k,JSONObject().put("id",item.optString("id")).put("displayName",item.optString("displayName")))};leaders.put(row)};categories.put(output.put("leaders",leaders))}
  return result.put("leaders",JSONObject().put("categories",categories))
 }
+
+fun sportsTeamGames(games:List<SportsGame>,teams:List<String>,now:Long)=games.filter{g->g.teams.any{it.id in teams}&&(g.start>now-86400000||(g.state=="pre"&&!Regex("CANCEL|FINAL").containsMatchIn(g.status)))}

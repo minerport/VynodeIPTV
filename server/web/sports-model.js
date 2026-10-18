@@ -18,3 +18,5 @@ export function athleteSeasons(data){return (data.categories||[]).flatMap(c=>(c.
 
 export async function sportsPool(tasks){const out=new Array(tasks.length);let next=0;await Promise.all(Array.from({length:Math.min(3,tasks.length)},async()=>{while(next<tasks.length){const i=next++;try{out[i]={status:'fulfilled',value:await tasks[i]()}}catch(e){out[i]={status:'rejected',reason:e}}}}));return out}
 export function mergeGames(schedules,scoreboard){const map=new Map();for(const g of schedules)if(!map.has(g.id)||map.get(g.id).updated<g.updated)map.set(g.id,g);for(const g of scoreboard)if(!g.stale||!map.has(g.id))map.set(g.id,g);return [...map.values()]}
+
+export function teamGames(games,teams,now=Date.now()){return games.filter(g=>g.teams.some(t=>teams.includes(t.id))&&(g.start>now-86400000||(g.state==='pre'&&!/CANCEL|FINAL/.test(g.status))))}

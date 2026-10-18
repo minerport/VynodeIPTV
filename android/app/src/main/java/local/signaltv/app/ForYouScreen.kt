@@ -46,7 +46,7 @@ import java.time.format.DateTimeFormatter
   item{Column(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(Color(0xff202b3c),Color(0xff17191e))),RoundedCornerShape(16.dp)).padding(12.dp)){
    Text("YOUR TEAMS. YOUR TOWN. YOUR TV.",color=Color(0xffd7c49b),style=MaterialTheme.typography.labelLarge)
    Row{Text("For you",style=MaterialTheme.typography.headlineMedium,color=Color.White,modifier=Modifier.weight(1f));TextButton(onClick=guide){Text("Guide",color=Color.White)};TextButton(onClick=browse){Text("Collection",color=Color.White)};Button(onClick={editing=true},enabled=loaded){Text("Edit interests")}}
-   Text("Live now and the next seven days, from your channel lineup.",color=Color.White,style=MaterialTheme.typography.bodySmall)
+   Text("Your teams’ schedules, local channels and favorite genres.",color=Color.White,style=MaterialTheme.typography.bodySmall)
    LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp)){items(catalog.teams.filter{it.id in settings.teams},key={it.id}){t->Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){TeamEmblem(t);Text(t.name,color=Color.White,modifier=Modifier.padding(top=16.dp))}}}
   }}
   if(!loaded)item{Text(if(error.isBlank())"Loading your picks…" else error);TextButton(onClick={revision++}){Text("Retry")}}
@@ -55,7 +55,7 @@ import java.time.format.DateTimeFormatter
    if(settings.teams.isEmpty()&&settings.genres.isEmpty()&&settings.city.isBlank()&&settings.localChannels.isEmpty())item{Text("Choose Edit interests to add teams, your hometown and favorite genres.")}
    item{TextButton(onClick={exploring=true}){Text("Explore sports statistics, comparisons & schedules")}}
    if(settings.teams.isNotEmpty())item{SportsOverview(catalog,settings.teams,sports,sportsErrors)}
-   if(settings.teams.isNotEmpty())item{SportsGamesShelf(gameData.values.flatten().filter{g->g.teams.any{it.id in settings.teams}&&g.start>now-86400000&&g.start<now+7*86400000}.distinctBy{it.id},gameErrors,catalog,channels.filter{"provider:"+it.groupId !in state.preferences.value.hiddenGroups},hits,sports,now,play)}
+   if(settings.teams.isNotEmpty())item{SportsGamesShelf(sportsTeamGames(gameData.values.flatten(),settings.teams,now).distinctBy{it.id},gameErrors,catalog,channels.filter{"provider:"+it.groupId !in state.preferences.value.hiddenGroups},hits,sports,now,play)}
    for((section,title) in listOf("local" to "Around home","genres" to "Your genres")){
     item{Text(title,style=MaterialTheme.typography.headlineSmall)}
     for(live in listOf(true,false)){
@@ -118,13 +118,18 @@ import java.time.format.DateTimeFormatter
  Text("Your games",style=MaterialTheme.typography.titleLarge)
  Text("ESPN start times and status. Provider channels are possible viewing options, not confirmation of a live broadcast.",style=MaterialTheme.typography.bodySmall)
  if(errors.isNotEmpty())Text("Schedule unavailable: "+errors.joinToString()+". EPG slots are not treated as live games.")
- if(games.isEmpty()&&errors.isEmpty())Text("No ESPN games for your teams in the next seven days.")
- LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp)){items(games.sortedWith(compareBy<SportsGame>{!sportsLive(it,now)}.thenBy{it.start}),key={it.id}){g->OutlinedCard(onClick={chosen=g},modifier=Modifier.width(330.dp).heightIn(min=280.dp)){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+ if(games.isEmpty()&&errors.isEmpty())Text("No games currently listed by ESPN for your teams.")
+ for(upcoming in listOf(false,true)){
+ Text(if(upcoming)"Coming up · all scheduled games" else "Live & recent",style=MaterialTheme.typography.titleMedium)
+ val sectionGames=games.filter{(it.state=="pre"||it.start>now)==upcoming}
+ if(sectionGames.isEmpty())Text(if(upcoming)"No upcoming games currently listed by ESPN." else "No live or recent games.")
+ LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp)){items(sectionGames.sortedWith(compareBy<SportsGame>{!sportsLive(it,now)}.thenBy{it.start}),key={it.id}){g->OutlinedCard(onClick={chosen=g},modifier=Modifier.width(330.dp).heightIn(min=280.dp)){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
  Text(sportsStatus(g,now),style=MaterialTheme.typography.labelMedium);Text(g.name,style=MaterialTheme.typography.titleMedium)
  Text(if(g.timeValid)"ESPN · "+Instant.ofEpochMilli(g.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE MMM d HH:mm"))else "Start time TBD")
  for(t in g.teams){Text(t.name+(if(g.state!="pre")" · "+t.score else ""));Text(sportsCompact(stats[g.league]?.rows?.find{it.id==t.id}),style=MaterialTheme.typography.bodySmall)}
  Text("Select for possible channels",style=MaterialTheme.typography.labelSmall)
  }}}}
+ }
  }
  chosen?.let{g->val options=sportsChannels(g,channels,hits,catalog);AlertDialog(onDismissRequest={chosen=null},title={Text(g.name)},text={Column{Text(sportsStatus(g,now)+" · ESPN");Text("Channel availability is unverified. A team channel may not carry this game.",style=MaterialTheme.typography.bodySmall);if(options.isEmpty())Text("No matching provider channel found.");LazyColumn(Modifier.heightIn(max=280.dp)){items(options,key={it.id}){c->TextButton(onClick={chosen=null;play(c)}){Text("Open channel · "+c.name)}}}}},confirmButton={TextButton(onClick={chosen=null}){Text("Close")}})}
 }

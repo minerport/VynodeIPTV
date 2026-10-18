@@ -42,3 +42,7 @@ For You merges ESPN's current scoreboard with selected teams' schedules by event
 EPG titles naming both teams near the game time and dedicated team-channel names supply **possible channels**, not verified broadcast availability. Replay/classic/highlights titles are excluded from matchup candidates. Provider guide times themselves remain unchanged. Favorite and opponent season summaries are shown beside each game.
 
 Public ESPN data is cached separately from provider accounts. Scoreboards refresh at one minute; schedules at five minutes; statistics at fifteen minutes. Stale scoreboards never certify LIVE. Short-lived game data expires after five minutes; stale statistics expire after 24 hours. The server limits source concurrency, response size and cache entries. Sports outages leave guide and playback usable. Android standalone fetches public sports data directly; linked Android requires server 0.18.0 for the expanded endpoint.
+
+### 0.18.1 — Every scheduled game
+
+The sports Coming up shelf includes all upcoming games available in ESPN's selected-team schedule, even beyond seven days and without any matching provider channel or EPG entry. Live/recent games have a separate shelf. A game with no matched channel still displays its opponent, source start/status and team statistics; it says no matching provider channel when selected. ESPN may not yet have published later-season fixtures. Local and genre shelves retain their EPG-based seven-day window.
