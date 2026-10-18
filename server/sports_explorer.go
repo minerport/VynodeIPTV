@@ -76,7 +76,7 @@ func sportsDataURL(kind, league, team, season string, now time.Time) (string, ti
 	case "scoreboard":
 		base += "/scoreboard"
 		params = url.Values{"limit": {"1000"}}
-		ttl = time.Minute
+		ttl = 15 * time.Second
 	case "leaders":
 		base = "https://site.api.espn.com/apis/site/v3/sports/" + path + "/leaders"
 	case "players":
@@ -222,7 +222,11 @@ func (a *App) sportsExplorerRoutes(m *http.ServeMux) {
 		entry.mu.Lock()
 		defer entry.mu.Unlock()
 		now := time.Now()
-		if now.Sub(entry.updated) > ttl && now.Sub(entry.attempted) > 30*time.Second {
+		retryInterval := 30 * time.Second
+		if kind == "scoreboard" {
+			retryInterval = 15 * time.Second
+		}
+		if now.Sub(entry.updated) > ttl && now.Sub(entry.attempted) > retryInterval {
 			select {
 			case sportsRequests <- struct{}{}:
 			case <-r.Context().Done():

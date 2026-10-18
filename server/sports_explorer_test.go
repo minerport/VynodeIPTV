@@ -22,7 +22,7 @@ func TestSportsExplorerDestinations(t *testing.T) {
 		}
 	}
 	u, ttl, _ := sportsDataURL("scoreboard", "NFL", "", "", now)
-	if !strings.Contains(u, "limit=1000") || ttl != time.Minute {
+	if !strings.Contains(u, "limit=1000") || ttl != 15*time.Second {
 		t.Fatal(u, ttl)
 	}
 }
@@ -86,6 +86,11 @@ func TestSportsExplorerAuthenticationAndFreshness(t *testing.T) {
 		t.Fatal("cache miss", calls)
 	}
 	e := sportsDataEntry(address)
+	e.updated = time.Now().Add(-16 * time.Second)
+	e.attempted = time.Now().Add(-16 * time.Second)
+	if w := call(a, "GET", path, a.admin, ""); w.Code != 200 || calls != 2 {
+		t.Fatal("scoreboard must refresh after fifteen seconds", calls)
+	}
 	e.updated = time.Now().Add(-2 * time.Minute)
 	e.attempted = time.Time{}
 	status = 503

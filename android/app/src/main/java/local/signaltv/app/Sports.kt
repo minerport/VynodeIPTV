@@ -32,7 +32,7 @@ fun sportsCompact(row:SportsRow?):String{
 class SportsStore(context:Context,private val profile:Profile){
  private val prefs=context.getSharedPreferences("sports-public-cache",Context.MODE_PRIVATE)
  suspend fun data(kind:String,league:String,team:String="",season:String="",sort:String="",page:Int=1,phase:String=""):SportsPayload=withContext(Dispatchers.IO){
- val address=sportsPlayerAddress(kind,league,team,season,sort,page,phase);val key="data:"+profile.mode+":"+(if(profile.mode=="server")profile.base else "")+":"+address;val now=System.currentTimeMillis();val ttl=if(kind=="scoreboard")60000L else if(kind=="schedule")300000L else 900000L;val maxAge=if(kind in setOf("scoreboard","schedule"))300000L else 86400000L
+ val address=sportsPlayerAddress(kind,league,team,season,sort,page,phase);val key="data:"+profile.mode+":"+(if(profile.mode=="server")profile.base else "")+":"+address;val now=System.currentTimeMillis();val ttl=if(kind=="scoreboard")15000L else if(kind=="schedule")300000L else 900000L;val maxAge=if(kind in setOf("scoreboard","schedule"))300000L else 86400000L
  val cached=runCatching{JSONObject(prefs.getString(key,"")!!)}.getOrNull()
  fun saved(j:JSONObject,stale:Boolean)=SportsPayload(j.getJSONObject("data"),j.optLong("updated"),stale||j.optBoolean("stale"))
  if(cached!=null&&now-cached.optLong("updated") in 0..ttl)return@withContext saved(cached,false)

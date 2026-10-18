@@ -8,7 +8,7 @@ import java.time.format.DateTimeFormatter
 
 data class SportsPayload(val data:JSONObject,val updated:Long,val stale:Boolean)
 data class SportsCompetitor(val id:String,val name:String,val score:String="")
-data class SportsGame(val id:String,val league:String,val name:String,val start:Long,val timeValid:Boolean,val state:String,val status:String,val detail:String,val teams:List<SportsCompetitor>,val updated:Long,val stale:Boolean,val scheduleOnly:Boolean=false)
+data class SportsGame(val id:String,val league:String,val name:String,val start:Long,val timeValid:Boolean,val state:String,val status:String,val detail:String,val teams:List<SportsCompetitor>,val updated:Long,val stale:Boolean,val scheduleOnly:Boolean=false,val lastPlay:String="",val possession:String="",val downDistance:String="")
 data class SportsLeader(val id:String,val name:String,val team:String,val category:String,val value:String,val numeric:Double?,val rank:Int)
 fun JSONArray.objects()=(0 until length()).mapNotNull{optJSONObject(it)}
 fun sportsAddress(kind:String,league:String,team:String="",season:String=""):String{
@@ -24,7 +24,7 @@ fun sportsLeaders(data:JSONObject):List<SportsLeader> = data.optJSONObject("lead
 fun sportsGames(payload:SportsPayload,league:String,scheduleOnly:Boolean=false):List<SportsGame> = payload.data.optJSONArray("events")?.objects().orEmpty().mapNotNull{e->
  val c=e.optJSONArray("competitions")?.optJSONObject(0)?:return@mapNotNull null;val status=c.optJSONObject("status")?:e.optJSONObject("status");val type=status?.optJSONObject("type");val teams=c.optJSONArray("competitors")?.objects().orEmpty().mapNotNull{x->val t=x.optJSONObject("team")?:return@mapNotNull null;SportsCompetitor(league.lowercase(java.util.Locale.ROOT)+":"+t.optString("id"),t.optString("displayName"),x.optJSONObject("score")?.optString("displayValue")?:x.optString("score"))};val start=runCatching{programmeEpoch(c.optString("date",e.optString("date")))}.getOrNull()?:return@mapNotNull null
  if(teams.size!=2||e.optString("id").isBlank())return@mapNotNull null
- SportsGame(league+":"+e.getString("id"),league,e.optString("name"),start,c.optBoolean("timeValid",true)&&e.optBoolean("timeValid",true),type?.optString("state","unknown")?:"unknown",type?.optString("name","UNKNOWN")?:"UNKNOWN",type?.optString("detail",type.optString("description","Status unavailable"))?:"Status unavailable",teams,payload.updated,payload.stale,scheduleOnly)
+ SportsGame(league+":"+e.getString("id"),league,e.optString("name"),start,c.optBoolean("timeValid",true)&&e.optBoolean("timeValid",true),type?.optString("state","unknown")?:"unknown",type?.optString("name","UNKNOWN")?:"UNKNOWN",type?.optString("detail",type.optString("description","Status unavailable"))?:"Status unavailable",teams,payload.updated,payload.stale,scheduleOnly,c.optJSONObject("situation")?.optJSONObject("lastPlay")?.optString("text")?.trim()?.take(600).orEmpty(),c.optJSONObject("situation")?.optString("possession")?.takeIf{it.isNotBlank()}?.let{league.lowercase(java.util.Locale.ROOT)+":"+it}.orEmpty(),c.optJSONObject("situation")?.optString("downDistanceText")?.take(100).orEmpty())
 }.distinctBy{it.id}
 fun sportsLive(g:SportsGame,now:Long)=!g.scheduleOnly&&!g.stale&&now-g.updated in 0..90000&&g.state=="in"&&!Regex("DELAY|SUSPEND|POSTPON|CANCEL|FINAL",RegexOption.IGNORE_CASE).containsMatchIn(g.status)
 fun sportsStatus(g:SportsGame,now:Long)=if(g.stale||(g.state=="in"&&now-g.updated !in 0..90000))"Status needs refresh" else if(sportsLive(g,now))"LIVE · "+g.detail else g.detail
