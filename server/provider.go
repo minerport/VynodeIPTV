@@ -28,6 +28,7 @@ type Channel struct {
 	CategoryName string `json:"categoryName"`
 }
 type Programme struct {
+	Genres       string    `json:"genres,omitempty"`
 	Season       int       `json:"season,omitempty"`
 	Episode      int       `json:"episode,omitempty"`
 	EpisodeTitle string    `json:"episodeTitle,omitempty"`
@@ -210,13 +211,14 @@ func parseEPG(r io.Reader, channels []Channel, now time.Time) ([]Programme, erro
 			return nil, errors.New("XMLTV exceeds 500000 programme limit")
 		}
 		var p struct {
-			Channel     string `xml:"channel,attr"`
-			Start       string `xml:"start,attr"`
-			Stop        string `xml:"stop,attr"`
-			Title       string `xml:"title"`
-			Description string `xml:"desc"`
-			Date        string `xml:"date"`
-			Subtitle    string `xml:"sub-title"`
+			Categories  []string `xml:"category"`
+			Channel     string   `xml:"channel,attr"`
+			Start       string   `xml:"start,attr"`
+			Stop        string   `xml:"stop,attr"`
+			Title       string   `xml:"title"`
+			Description string   `xml:"desc"`
+			Date        string   `xml:"date"`
+			Subtitle    string   `xml:"sub-title"`
 			Episodes    []struct {
 				System string `xml:"system,attr"`
 				Value  string `xml:",chardata"`
@@ -254,7 +256,7 @@ func parseEPG(r io.Reader, channels []Channel, now time.Time) ([]Programme, erro
 			if len(p.Description) > 8000 {
 				p.Description = p.Description[:8000]
 			}
-			out = append(out, Programme{ChannelID: id, Title: p.Title, Start: a, End: b, Description: p.Description, Year: year, Season: season, Episode: episode, EpisodeTitle: p.Subtitle})
+			out = append(out, Programme{Genres: strings.Join(p.Categories, ", "), ChannelID: id, Title: p.Title, Start: a, End: b, Description: p.Description, Year: year, Season: season, Episode: episode, EpisodeTitle: p.Subtitle})
 		}
 	}
 	if len(out) == 0 {

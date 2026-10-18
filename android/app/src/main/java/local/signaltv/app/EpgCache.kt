@@ -16,29 +16,30 @@ class EpgCache(context:Context,profile:Profile){
  private var entries=emptyMap<String,List<Programme>>()
  @Synchronized fun load():Map<String,List<Programme>>{
   if(file.lastModified()==stamp)return entries
-  val next=runCatching{val a=JSONArray(file.readText());val result=mutableMapOf<String,MutableList<Programme>>();for(i in 0 until a.length()){val r=a.getJSONArray(i);result.getOrPut(r.getString(0)){mutableListOf()}.add(Programme(r.getString(1),r.getLong(2),r.getLong(3),r.optString(4),r.optString(5),r.optInt(6),r.optInt(7),r.optString(8)))};result}.getOrDefault(emptyMap())
+  val next=runCatching{val a=JSONArray(file.readText());val result=mutableMapOf<String,MutableList<Programme>>();for(i in 0 until a.length()){val r=a.getJSONArray(i);result.getOrPut(r.getString(0)){mutableListOf()}.add(Programme(r.getString(1),r.getLong(2),r.getLong(3),r.optString(4),r.optString(5),r.optInt(6),r.optInt(7),r.optString(8),r.optString(9)))};result}.getOrDefault(emptyMap())
   entries=next;stamp=file.lastModified();return entries
  }
- @Synchronized fun save(values:Map<String,List<Programme>>){val a=JSONArray();values.forEach{(id,ps)->ps.forEach{p->a.put(JSONArray(listOf(id,p.title,p.start,p.end,p.description,p.year,p.season,p.episode,p.episodeTitle)))}};writeMetadata(file,a.toString());entries=values;stamp=file.lastModified()}
+ @Synchronized fun save(values:Map<String,List<Programme>>){val a=JSONArray();values.forEach{(id,ps)->ps.forEach{p->a.put(JSONArray(listOf(id,p.title,p.start,p.end,p.description,p.year,p.season,p.episode,p.episodeTitle,p.genres)))}};writeMetadata(file,a.toString());entries=values;stamp=file.lastModified()}
 }
 fun xmltvTime(value:String):Long = runCatching{val clean=value.trim();OffsetDateTime.parse(if(clean.length==14)clean+" +0000" else clean,DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z")).toInstant().toEpochMilli()}.getOrDefault(0)
 suspend fun importEpg(profile:Profile,channels:List<Channel>):Map<String,List<Programme>> = withContext(Dispatchers.IO){
  val url=android.net.Uri.parse(profile.base+"/xmltv.php").buildUpon().appendQueryParameter("username",profile.username).appendQueryParameter("password",profile.password).build().toString()
  val xml=request(url,httpFallback=profile.httpFallback&&profile.allowHttp);val parser=Xml.newPullParser();parser.setInput(xml.reader())
  val ids=channels.filter{it.epgId.isNotBlank()}.groupBy{it.epgId};val result=mutableMapOf<String,MutableList<Programme>>();val now=System.currentTimeMillis()
- var channel="";var start=0L;var end=0L;var title="";var description="";var year="";var count=0;var season=0;var episode=0;var subtitle=""
+ var channel="";var start=0L;var end=0L;var title="";var description="";var year="";var count=0;var season=0;var episode=0;var subtitle="";var genres=""
  var rootSeen=false
  while(parser.eventType!=XmlPullParser.END_DOCUMENT){
   if(parser.eventType==XmlPullParser.START_TAG && !rootSeen){check(parser.name=="tv"){"Provider did not return an XMLTV guide"};rootSeen=true}
   if(parser.eventType==XmlPullParser.START_TAG)when(parser.name){
-   "programme"->{channel=parser.getAttributeValue(null,"channel").orEmpty();start=xmltvTime(parser.getAttributeValue(null,"start").orEmpty());end=xmltvTime(parser.getAttributeValue(null,"stop").orEmpty());title="";description="";year="";season=0;episode=0;subtitle=""}
+   "programme"->{channel=parser.getAttributeValue(null,"channel").orEmpty();start=xmltvTime(parser.getAttributeValue(null,"start").orEmpty());end=xmltvTime(parser.getAttributeValue(null,"stop").orEmpty());title="";description="";year="";season=0;episode=0;subtitle="";genres=""}
    "title"->title=parser.nextText()
    "desc"->description=parser.nextText()
+   "category"->{genres=(genres+", "+parser.nextText()).trim(',',' ')}
    "date"->year=parser.nextText().take(4)
    "sub-title"->subtitle=parser.nextText().take(240)
    "episode-num"->{val system=parser.getAttributeValue(null,"system").orEmpty();val number=parseEpisodeNumber(system,parser.nextText());if(number!=null&&episode==0){season=number.first;episode=number.second}}
   }
-  if(parser.eventType==XmlPullParser.END_TAG && parser.name=="programme" && end>start && end>now-7*86400000L && start<now+7*86400000L){ids[channel]?.forEach{c->check(++count<=300000){"EPG exceeds device import limit"};result.getOrPut(c.id){mutableListOf()}.add(Programme(title.ifBlank{"Untitled programme"},start,end,description,year,season,episode,subtitle))}}
+  if(parser.eventType==XmlPullParser.END_TAG && parser.name=="programme" && end>start && end>now-7*86400000L && start<now+7*86400000L){ids[channel]?.forEach{c->check(++count<=300000){"EPG exceeds device import limit"};result.getOrPut(c.id){mutableListOf()}.add(Programme(title.ifBlank{"Untitled programme"},start,end,description,year,season,episode,subtitle,genres))}}
   parser.next()
  }
  check(rootSeen){"Provider returned an empty guide response"}

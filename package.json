@@ -1,6 +1,6 @@
 {
   "name": "signal-tv",
-  "version": "0.16.7",
+  "version": "0.17.0",
   "private": true,
   "type": "module",
   "scripts": {"vendor": "node scripts/vendor.mjs", "test": "node --test tests/*.test.mjs"},

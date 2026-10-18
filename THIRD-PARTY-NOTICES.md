@@ -15,3 +15,7 @@ No provider media, subscription, login, encryption key, administrator token or d
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 Optional metadata and artwork remain subject to TMDB's terms, https://www.themoviedb.org/api-terms-of-use. TMDB branding is not covered by this repository's MIT license. The approved gradient logo in `server/web/tmdb-logo.svg` is the original logo mirrored at https://commons.wikimedia.org/wiki/File:Tmdb.new.logo.svg, which identifies its official TMDB source. `android/app/src/main/res/drawable/tmdb_logo.xml` reproduces the same path, colors, gradient and proportions as a native Android vector drawable. Attribution and branding requirements: https://www.themoviedb.org/about/logos-attribution.
+
+## Sports team directory and emblems
+
+For You includes a snapshot of team names, abbreviations, colors and public emblem URLs from ESPN's team directory (retrieved October 18, 2026; NFL, NBA, MLB, NHL and MLS). Emblems are loaded directly from a.espncdn.com, with no provider credentials sent; they are not bundled. Team names and marks belong to their respective owners. VynodeIPTV is not affiliated with or endorsed by ESPN, the leagues or teams. Network failures retain text/abbreviation fallbacks. The snapshot is informational, not a game schedule or guarantee of broadcasting rights.

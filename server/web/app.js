@@ -192,7 +192,7 @@ const appearanceSettings=document.createElement('button');appearanceSettings.cla
 const homeHost=el('section');homeHost.id='discover-home';homeHost.hidden=true;$('live').before(homeHost);
 const home=homeUI({host:homeHost,api,channels:()=>channels,preferences:()=>preferences,tune:c=>{openDestination('guide');return tune(c)},guide:()=>openDestination('guide'),wall:()=>openDestination('wall'),library:()=>dvr.library(),programme:(...args)=>dvr.programme(...args),message});
 function openDestination(destination){document.body.classList.toggle('wall-destination',destination==='wall');$('home-tab').classList.toggle('secondary',destination!=='home');$('live-tab').classList.toggle('secondary',destination==='home');home.close();homeHost.hidden=destination!=='home';$('live').hidden=destination==='home';$('settings').hidden=true;if(destination==='home')void home.show();else{renderGuide();scheduleGuide();if(destination==='wall'){$('player-controls').open=true;$('wall').scrollIntoView({block:'start'});$('wall-layout').focus()}}}
-const homeButton=button('Discover',()=>openDestination('home'),'secondary');homeButton.id='home-tab';$('live-tab').before(homeButton);
+const homeButton=button('For you',()=>openDestination('home'),'secondary');homeButton.id='home-tab';$('live-tab').before(homeButton);
 $('live-tab').addEventListener('click',()=>openDestination('guide'));$('settings-tab').addEventListener('click',()=>{home.close();homeHost.hidden=true});$('logout').addEventListener('click',()=>{home.close();homeHost.hidden=true});
 
 $('rail-wall').addEventListener('click',()=>openDestination('wall'));

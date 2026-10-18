@@ -1,3 +1,4 @@
+import {forYouUI} from './for-you.js';
 import {guideMetadata} from './metadata.js';
 
 export function homeCandidates(channels,favorites,recent){const byId=new Map(channels.map(c=>[c.id,c]));return [...new Set([...favorites,...recent,...channels.map(c=>c.id)])].map(id=>byId.get(id)).filter(Boolean).slice(0,12)}
@@ -6,12 +7,13 @@ export function upcoming(programmes,now=Date.now()){return programmes.filter(p=>
 
 export function homeUI({host,api,channels,preferences,tune,guide,wall,library,programme,message}){
 
- let epoch=0;const enrich=guideMetadata(api);const el=(tag,text)=>{const e=document.createElement(tag);if(text)e.textContent=text;return e};
+ let personal;let epoch=0;const enrich=guideMetadata(api);const el=(tag,text)=>{const e=document.createElement(tag);if(text)e.textContent=text;return e};
 
  const action=(text,fn)=>{const b=el('button',text);b.onclick=()=>Promise.resolve().then(fn).catch(e=>message(e.message,true));return b};
 
  async function show(){const id=++epoch;enrich.reset();host.replaceChildren(el('p','YOUR COLLECTION'),el('h1','Find something worth watching.'));const nav=el('div');nav.className='toolbar';nav.append(action('Open guide',guide),action('Video wall',wall),action('Recordings',library));host.append(nav);let recent=[];try{recent=JSON.parse(localStorage.getItem('vynode-recent')||'[]')}catch{};if(!Array.isArray(recent))recent=[];
 
+ const personalHost=el('section');host.prepend(personalHost);personal?.close();personal=forYouUI({host:personalHost,api,channels,tune,programme,message});void personal.show();
  const all=channels(),fav=preferences().favorites||[],selected=homeCandidates(all,fav,recent);const targets=[];
 
  const section=(name)=>{host.append(el('h2',name));const row=el('div');row.className='home-cards';host.append(row);return row};
@@ -30,6 +32,6 @@ export function homeUI({host,api,channels,preferences,tune,guide,wall,library,pr
 
  }
 
- return {show,close(){epoch++;enrich.reset()}};
+ return {show,close(){epoch++;enrich.reset();personal?.close()}};
 
 }

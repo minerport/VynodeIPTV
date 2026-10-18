@@ -232,7 +232,7 @@ class GuideUiState {
                         var menu by remember{mutableStateOf(false)}
                         IconButton(onClick={menu=true},modifier=Modifier.width(36.dp).semantics{contentDescription="Guide menu"}){Text("☰")}
                         DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
-                            DropdownMenuItem(text={Text("Discover home")},onClick={menu=false;onHome()})
+                            DropdownMenuItem(text={Text("For you")},onClick={menu=false;onHome()})
                             DropdownMenuItem(text={Text("Search everything")},onClick={menu=false;globalSearch=true})
                             DropdownMenuItem(text={Text("Recent channels")},onClick={menu=false;recentOpen=true})
                             DropdownMenuItem(text={Text("Guide appearance")},onClick={menu=false;appearance=true})

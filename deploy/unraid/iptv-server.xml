@@ -11,7 +11,7 @@
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
   <Date>2026-10-18</Date>
-  <Changes>0.16.7: Android and browser guides advance with current time, preserve future browsing and channel position, and refresh expired listings. Includes the Shield group and Favorite crash fix.</Changes>
+  <Changes>0.17.0: For You recommendations with team emblems, city/state and local-station preferences, favorite genres, and current/upcoming EPG listings. Available on browser and standalone or linked Android.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

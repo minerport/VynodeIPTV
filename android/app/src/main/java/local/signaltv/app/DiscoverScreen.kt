@@ -18,6 +18,8 @@ import org.json.JSONArray
 
 fun discoverChannels(channels:List<Channel>,favorites:Set<String>,recent:List<String>):List<Channel>{val ids=channels.associateBy{it.id};return (favorites+recent+channels.map{it.id}).distinct().mapNotNull{ids[it]}.take(12)}
 @Composable fun DiscoverScreen(channels:List<Channel>,repo:Repository,state:GuideUiState,guide:()->Unit,wall:()->Unit,settings:()->Unit,play:(Channel)->Unit){
+ var personal by remember{mutableStateOf(true)}
+ if(personal){ForYouScreen(channels,repo,state,guide,{personal=false},play);return}
  val context=LocalContext.current
  var favorites by remember(repo.profile){mutableStateOf(emptySet<String>())}
  val recent=remember(repo.profile){GuideExperience(context,repo.profile).recent()}
@@ -35,7 +37,7 @@ fun discoverChannels(channels:List<Channel>,favorites:Set<String>,recent:List<St
  LaunchedEffect(repo.profile,entries){val service=TmdbMetadata.get(context);val now=System.currentTimeMillis();for(p in entries.values.flatten().filter{it.end>now}.take(24)){try{service.lookup(repo.profile,p)?.let{metadata[programmeMetadataKey(p)]=it}}catch(e:CancellationException){throw e}catch(_:Exception){};delay(150)}}
  BackHandler{guide()}
  LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(10.dp)){
-  item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Text("DISCOVER",style=MaterialTheme.typography.headlineMedium,modifier=Modifier.weight(1f));TextButton(onClick=guide){Text("Guide")};TextButton(onClick=wall){Text("Wall")};TextButton(onClick={library()}){Text("Recordings")};TextButton(onClick=settings){Text("Appearance")}}}
+  item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){TextButton(onClick={personal=true}){Text("For you")};Text("COLLECTION",style=MaterialTheme.typography.headlineMedium,modifier=Modifier.weight(1f));TextButton(onClick=guide){Text("Guide")};TextButton(onClick=wall){Text("Wall")};TextButton(onClick={library()}){Text("Recordings")};TextButton(onClick=settings){Text("Appearance")}}}
   item{Text("Find something worth watching.",style=MaterialTheme.typography.headlineSmall)}
   val sections=listOf("Recently watched" to recent.mapNotNull{id->channels.find{it.id==id}}.take(12),"Favorites" to channels.filter{it.id in favorites}.take(12),"On now" to selected)
   sections.forEach{(title,list)->
