@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "local.signaltv.app"
     compileSdk = 36
-    defaultConfig { applicationId = "local.signaltv.app"; minSdk = 26; targetSdk = 36; versionCode = 35; versionName = "0.16.5" }
+    defaultConfig { applicationId = "local.signaltv.app"; minSdk = 26; targetSdk = 36; versionCode = 36; versionName = "0.16.6" }
     buildFeatures { compose = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
@@ -11,7 +11,9 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.ui:ui:1.11.3")
     implementation("androidx.compose.foundation:foundation:1.11.3")
-    implementation("androidx.compose.material3:material3:1.4.0")
+    // Shield API 30: Material 3 1.4 ChildSemanticsNode crashes on detached nodes.
+    // Keep this compatibility pin until a guarded implementation is verified on hardware.
+    implementation("androidx.compose.material3:material3:1.3.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.media3:media3-exoplayer:1.11.1")
     implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
