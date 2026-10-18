@@ -11,7 +11,7 @@
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
   <Date>2026-10-18</Date>
-  <Changes>0.17.1: Sports center with league standings, team season records and scoring, and opponent comparisons on matched EPG listings. Cached statistics on browser and standalone or linked Android.</Changes>
+  <Changes>0.18.0: Sports explorer with sortable standings, team comparisons, player leaderboards and career statistics. ESPN schedules and actual game status, grouped viewing options, and direct For You sidebar access.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

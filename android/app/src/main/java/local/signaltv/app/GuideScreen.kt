@@ -202,6 +202,7 @@ class GuideUiState {
     Row(Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
         if(navigationOpen)Column(Modifier.width(64.dp).fillMaxHeight().appearancePanel().padding(4.dp)){
             Text("V",Modifier.padding(14.dp),color=TvPalette.Signal,fontWeight=FontWeight.Black,style=MaterialTheme.typography.titleLarge)
+            RailIconButton(R.drawable.rail_home,"For You",action=onHome)
             RailIconButton(R.drawable.rail_search,"Search channels",showLabel=!searching){searchDraft=query;searching=true}
             RailIconButton(R.drawable.rail_favorite,"Favorites"){choose("favorites")}
             RailIconButton(R.drawable.rail_wall,"Video wall",action=onWall)

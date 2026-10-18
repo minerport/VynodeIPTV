@@ -50,6 +50,7 @@ func fetchSports(path string) (json.RawMessage, error) {
 	return b, nil
 }
 func (a *App) sportsRoutes(m *http.ServeMux) {
+	a.sportsExplorerRoutes(m)
 	m.HandleFunc("GET /api/v1/sports/standings", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
 		league := r.URL.Query().Get("league")
 		entry, ok := sportsCache[league]

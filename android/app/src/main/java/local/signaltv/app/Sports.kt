@@ -6,16 +6,16 @@ import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 import android.content.Context
 
-data class SportsStat(val key:String,val label:String,val value:String)
-data class SportsRow(val id:String,val name:String,val group:String,val season:String,val phase:String,val stats:List<SportsStat>)
+data class SportsStat(val key:String,val label:String,val value:String,val numeric:Double?=null,val category:String="")
+data class SportsRow(val id:String,val name:String,val group:String,val season:String,val phase:String,val stats:List<SportsStat>,val seasonYear:Int=0)
 data class SportsLeague(val league:String,val rows:List<SportsRow>,val updated:Long,val stale:Boolean=false)
 val sportsPaths=mapOf("NFL" to "football/nfl","NBA" to "basketball/nba","MLB" to "baseball/mlb","NHL" to "hockey/nhl","MLS" to "soccer/usa.1")
 private val sportsFields=setOf("overall","wins","losses","ties","otLosses","points","winPercent","playoffSeed","rank","streak","pointsFor","pointsAgainst","pointDifferential","avgPointsFor","avgPointsAgainst","Home","Road","Last Ten Games")
 fun parseStandings(root:JSONObject,league:String):List<SportsRow>{
  val rows=mutableListOf<SportsRow>()
  fun walk(n:JSONObject){val s=n.optJSONObject("standings");val entries=s?.optJSONArray("entries")
- if(entries!=null)for(i in 0 until entries.length()){val e=entries.getJSONObject(i);val t=e.getJSONObject("team");val a=e.optJSONArray("stats");val stats=if(a==null)emptyList()else (0 until a.length()).map{a.getJSONObject(it)}.filter{it.optString("name") in sportsFields&&it.has("displayValue")&&(it.optString("name")!="points"||league in setOf("NHL","MLS"))}.map{SportsStat(it.getString("name"),when(it.getString("name")){"overall"->"Record";"pointsFor"->if(league=="MLB")"Runs scored" else if(league in setOf("NHL","MLS"))"Goals for" else "Points for";"pointsAgainst"->if(league=="MLB")"Runs allowed" else if(league in setOf("NHL","MLS"))"Goals against" else "Points against";else->it.optString("displayName",it.getString("name"))},it.getString("displayValue"))}
- rows.add(SportsRow(league.lowercase(java.util.Locale.ROOT)+":"+t.getString("id"),t.optString("displayName"),n.optString("name"),s.optString("seasonDisplayName",s.optString("season")),mapOf(1 to "Preseason",2 to "Regular season",3 to "Postseason")[s.optInt("seasonType")]?:"Season",stats))}
+ if(entries!=null)for(i in 0 until entries.length()){val e=entries.getJSONObject(i);val t=e.getJSONObject("team");val a=e.optJSONArray("stats");val stats=if(a==null)emptyList()else (0 until a.length()).map{a.getJSONObject(it)}.filter{it.optString("name") in sportsFields&&it.has("displayValue")&&(it.optString("name")!="points"||league in setOf("NHL","MLS"))}.map{SportsStat(it.getString("name"),when(it.getString("name")){"overall"->"Record";"pointsFor"->if(league=="MLB")"Runs scored" else if(league in setOf("NHL","MLS"))"Goals for" else "Points for";"pointsAgainst"->if(league=="MLB")"Runs allowed" else if(league in setOf("NHL","MLS"))"Goals against" else "Points against";else->it.optString("displayName",it.getString("name"))},it.getString("displayValue"),it.optDouble("value",Double.NaN).takeIf{n->n.isFinite()})}
+ rows.add(SportsRow(league.lowercase(java.util.Locale.ROOT)+":"+t.getString("id"),t.optString("displayName"),n.optString("name"),s.optString("seasonDisplayName",s.optString("season")),mapOf(1 to "Preseason",2 to "Regular season",3 to "Postseason")[s.optInt("seasonType")]?:"Season",stats,s.optInt("season")))}
  val children=n.optJSONArray("children");if(children!=null)for(i in 0 until children.length())walk(children.getJSONObject(i))
  };walk(root);return rows
 }
@@ -31,6 +31,15 @@ fun sportsCompact(row:SportsRow?):String{
 }
 class SportsStore(context:Context,private val profile:Profile){
  private val prefs=context.getSharedPreferences("sports-public-cache",Context.MODE_PRIVATE)
+ suspend fun data(kind:String,league:String,team:String="",season:String=""):SportsPayload=withContext(Dispatchers.IO){
+ val address=sportsAddress(kind,league,team,season);val key="data:"+profile.mode+":"+(if(profile.mode=="server")profile.base else "")+":"+address;val now=System.currentTimeMillis();val ttl=if(kind=="scoreboard")60000L else if(kind=="schedule")300000L else 900000L;val maxAge=if(kind in setOf("scoreboard","schedule"))300000L else 86400000L
+ val cached=runCatching{JSONObject(prefs.getString(key,"")!!)}.getOrNull()
+ fun saved(j:JSONObject,stale:Boolean)=SportsPayload(j.getJSONObject("data"),j.optLong("updated"),stale||j.optBoolean("stale"))
+ if(cached!=null&&now-cached.optLong("updated") in 0..ttl)return@withContext saved(cached,false)
+ try{val q=java.net.URLEncoder.encode(team,"UTF-8");val payload=if(profile.mode=="server")JSONObject(request(profile.base+"/api/v1/sports/data?kind="+kind+"&league="+league+"&team="+q+"&season="+season,profile.token))else JSONObject().put("data",JSONObject(request(address))).put("updatedAt",java.time.Instant.ofEpochMilli(now).toString())
+ require(payload.toString().length<=(if(kind=="leaders")8 else 2)*1024*1024);if(kind=="leaders")payload.put("data",sportsTrimLeaders(payload.getJSONObject("data")));val updated=programmeEpoch(payload.getString("updatedAt"));val entry=JSONObject().put("data",payload.getJSONObject("data")).put("updated",updated).put("stale",payload.optBoolean("stale"));val edit=prefs.edit();if(prefs.all.size>=64&&!prefs.contains(key))prefs.all.keys.firstOrNull()?.let{edit.remove(it)};edit.putString(key,entry.toString()).apply();saved(entry,false)
+ }catch(e:CancellationException){throw e}catch(e:Exception){if(cached!=null&&now-cached.optLong("updated") in 0..maxAge)saved(cached,true)else throw e}
+ }
  suspend fun load(league:String):SportsLeague=withContext(Dispatchers.IO){
  val path=requireNotNull(sportsPaths[league]);val now=System.currentTimeMillis();val key=if(profile.mode=="server")"server:"+profile.base+":"+league else league
  val cached=runCatching{JSONObject(prefs.getString(key,"")!!)}.getOrNull();val stamp=cached?.optLong("saved")?:0

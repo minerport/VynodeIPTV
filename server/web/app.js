@@ -118,6 +118,7 @@ $('guide-viewport').addEventListener('keydown',e=>{if(e.target!==$('guide-viewpo
 
 function setGroups(show){$('live').classList.toggle('groups-open',show);$('show-groups').setAttribute('aria-expanded',String(show));requestAnimationFrame(()=>{renderGuide();loadGuide();});}
 $('show-groups').onclick=()=>setGroups(!$('live').classList.contains('groups-open'));
+$('rail-home').onclick=()=>openDestination('home');
 $('rail-search').onclick=()=>{$('search').focus();};
 $('rail-favorites').onclick=()=>{selected='favorites';setGroups(false);resetScroll();renderGroups();renderGuide();loadGuide();};
 $('rail-wall').onclick=()=>{if(wall.tiles.length)wall.host.classList.add('expanded');$('wall-layout').focus();};
