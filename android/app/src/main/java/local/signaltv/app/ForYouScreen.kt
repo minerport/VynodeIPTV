@@ -1,6 +1,7 @@
 package local.signaltv.app
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -33,6 +34,9 @@ import java.time.format.DateTimeFormatter
  val context=LocalContext.current;val catalog=remember{InterestCatalog.load(context)};val store=remember(repo.profile){InterestStore(context,repo.profile)}
  var settings by remember(repo.profile){mutableStateOf(InterestSettings())};var hits by remember(repo.profile){mutableStateOf(emptyList<InterestHit>())};var error by remember{mutableStateOf("")};var loaded by remember{mutableStateOf(false)};var editing by remember{mutableStateOf(false)};var revision by remember{mutableIntStateOf(0)};var now by remember{mutableLongStateOf(System.currentTimeMillis())}
  LaunchedEffect(store,revision){while(true){try{settings=store.load();hits=store.hits(channels,state.cache.mapValues{it.value.second},catalog);error="";loaded=true}catch(e:CancellationException){throw e}catch(_:Exception){error="Personal picks unavailable. Check your connection and server version."};now=System.currentTimeMillis();delay(60000)}}
+ val sportsStore=remember(repo.profile){SportsStore(context,repo.profile)}
+ var sports by remember(repo.profile){mutableStateOf<Map<String,SportsLeague>>(emptyMap())};var sportsErrors by remember{mutableStateOf(setOf<String>())}
+ LaunchedEffect(settings.teams,sportsStore){sportsErrors=emptySet();val leagues=catalog.teams.filter{it.id in settings.teams}.map{it.league}.distinct();while(true){for(league in leagues){try{sports=sports+ (league to sportsStore.load(league));sportsErrors=sportsErrors-league}catch(e:CancellationException){throw e}catch(_:Exception){sports=sports-league;sportsErrors=sportsErrors+league}};delay(900000)}}
  BackHandler{guide()}
  LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(14.dp)){
   item{Column(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(Color(0xff202b3c),Color(0xff17191e))),RoundedCornerShape(16.dp)).padding(12.dp)){
@@ -45,6 +49,7 @@ import java.time.format.DateTimeFormatter
   if(loaded){
    if(error.isNotBlank())item{Text(error)}
    if(settings.teams.isEmpty()&&settings.genres.isEmpty()&&settings.city.isBlank()&&settings.localChannels.isEmpty())item{Text("Choose Edit interests to add teams, your hometown and favorite genres.")}
+   if(settings.teams.isNotEmpty())item{SportsOverview(catalog,settings.teams,sports,sportsErrors)}
    for((section,title) in listOf("sports" to "Your teams","local" to "Around home","genres" to "Your genres")){
     item{Text(title,style=MaterialTheme.typography.headlineSmall)}
     for(live in listOf(true,false)){
@@ -52,8 +57,10 @@ import java.time.format.DateTimeFormatter
      val matches=hits.filter{it.section==section&&it.programme.end>now&&(it.programme.start<=now)==live}
      item{if(matches.isEmpty())Text(if(section=="local")"No matching EPG listings. Select local stations in Edit interests when city/state is missing from their names." else "No matching EPG listings. Refresh EPG or change your interests.",color=TvPalette.Muted)else LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp)){
       items(matches,key={it.section+it.channel.id+it.programme.start}){h->val t=catalog.teams.find{it.id==h.teamId};var focused by remember{mutableStateOf(false)};val accent=t?.color?.let{runCatching{Color(android.graphics.Color.parseColor("#"+it))}.getOrNull()}?:TvPalette.Accent
-       OutlinedCard(onClick={if(live)play(h.channel)else{state.selected.value="all";state.query.value="";state.start.longValue=maxOf(System.currentTimeMillis(),h.programme.start);state.returnChannel.value=h.channel.id;state.focusedChannel.value=h.channel;state.focusedProgramme.value=h.programme;guide()}},modifier=Modifier.width(270.dp).height(230.dp).onFocusChanged{focused=it.isFocused},border=BorderStroke(if(focused)4.dp else 2.dp,if(focused)TvPalette.Accent else accent)){
-        Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){if(t!=null)TeamEmblem(t);Text(if(live)"ON NOW · WATCH" else "COMING UP · OPEN GUIDE",style=MaterialTheme.typography.labelSmall);Text(h.programme.title,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleMedium);Text(h.channel.name,maxLines=1);Text(Instant.ofEpochMilli(h.programme.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE HH:mm")),style=MaterialTheme.typography.bodySmall);Text(h.reason,maxLines=2,style=MaterialTheme.typography.bodySmall)}
+       OutlinedCard(onClick={if(live)play(h.channel)else{state.selected.value="all";state.query.value="";state.start.longValue=maxOf(System.currentTimeMillis(),h.programme.start);state.returnChannel.value=h.channel.id;state.focusedChannel.value=h.channel;state.focusedProgramme.value=h.programme;guide()}},modifier=Modifier.width(270.dp).height(if(t!=null)400.dp else 230.dp).onFocusChanged{focused=it.isFocused},border=BorderStroke(if(focused)4.dp else 2.dp,if(focused)TvPalette.Accent else accent)){
+        Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){if(t!=null)TeamEmblem(t);Text(if(live)"ON NOW · WATCH" else "COMING UP · OPEN GUIDE",style=MaterialTheme.typography.labelSmall);Text(h.programme.title,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleMedium);Text(h.channel.name,maxLines=1);Text(Instant.ofEpochMilli(h.programme.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE HH:mm")),style=MaterialTheme.typography.bodySmall);Text(h.reason,maxLines=2,style=MaterialTheme.typography.bodySmall)
+         if(t!=null){val league=sports[t.league];val own=league?.rows?.find{it.id==t.id};val opponent=sportsOpponent(h.programme.title,t,catalog);Text("Season stats"+(own?.let{" · "+it.season+" "+it.phase}?:""),style=MaterialTheme.typography.labelSmall);Text(t.abbreviation+": "+sportsCompact(own),maxLines=3,style=MaterialTheme.typography.bodySmall);Text(if(opponent!=null)opponent.abbreviation+": "+sportsCompact(league?.rows?.find{it.id==opponent.id})else "Opponent not identified in this listing",maxLines=3,style=MaterialTheme.typography.bodySmall)}
+        }
        }
       }
      }}
@@ -77,4 +84,23 @@ import java.time.format.DateTimeFormatter
   }
   Text(notice,style=MaterialTheme.typography.bodySmall)
  }},confirmButton={TextButton(enabled=!busy,onClick={busy=true;scope.launch{try{store.save(draft);saved()}catch(e:CancellationException){throw e}catch(_:Exception){notice="Could not save. Your previous interests are retained."}finally{busy=false}}}){Text(if(busy)"Saving…" else "Save")}},dismissButton={TextButton(enabled=!busy,onClick=dismiss){Text("Cancel")}})
+}
+
+@Composable private fun SportsOverview(catalog:InterestCatalog,selected:List<String>,data:Map<String,SportsLeague>,errors:Set<String>){
+ var detail by remember{mutableStateOf("")}
+ Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+ Text("Sports center",style=MaterialTheme.typography.titleLarge)
+ Text("Season records and scoring · ESPN · Separate from air dates and live scores",style=MaterialTheme.typography.bodySmall)
+ LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp)){
+  items(catalog.teams.filter{it.id in selected},key={it.id}){t->OutlinedButton(onClick={detail=t.id}){Column(Modifier.width(230.dp)){Text(t.name);Text(sportsCompact(data[t.league]?.rows?.find{it.id==t.id}),maxLines=2,style=MaterialTheme.typography.bodySmall)}}}
+ }
+ Row{for(league in catalog.teams.filter{it.id in selected}.map{it.league}.distinct())TextButton(onClick={detail=league}){Text(league+" standings")}}
+ if(errors.isNotEmpty())Text("Stats temporarily unavailable: "+errors.joinToString()+". Guide and playback remain available.",style=MaterialTheme.typography.bodySmall)
+ }
+ if(detail.isNotBlank()){val team=catalog.teams.find{it.id==detail};val league=data[team?.league?:detail];val rows=league?.rows.orEmpty().filter{team==null||it.id==team.id}
+ AlertDialog(onDismissRequest={detail=""},title={Text(team?.name?:detail+" standings")},text={LazyColumn(Modifier.heightIn(max=380.dp)){
+  item{Text(if(league==null)"Statistics unavailable" else (if(league.stale)"Cached · " else "Updated · ")+Instant.ofEpochMilli(league.updated).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d HH:mm"))+" · ESPN")}
+  items(rows,key={it.id}){r->Column(Modifier.padding(vertical=10.dp).focusable()){Text(r.name,style=MaterialTheme.typography.titleMedium);Text(r.season+" · "+r.phase+" · "+r.group,style=MaterialTheme.typography.bodySmall);for(stat in r.stats)Row(Modifier.fillMaxWidth()){Text(stat.label,Modifier.weight(1f),style=MaterialTheme.typography.bodySmall);Text(stat.value,style=MaterialTheme.typography.bodySmall)}}}
+ }},confirmButton={TextButton(onClick={detail=""}){Text("Close")}})
+ }
 }

@@ -16,3 +16,11 @@ Browser interests are stored in the server's encrypted configuration for the sig
 ## Images and limitations
 
 The bundled team directory works offline; emblem images require access to a.espncdn.com and may be blocked on some networks. Only emblem URLs are requested, without IPTV credentials. Team identities/colors are a dated snapshot, and trademarks belong to the teams. Matches depend on provider spelling, guide categories, import freshness and schedule coverage; no available listing means an honest empty state, not a fabricated broadcast.
+
+## Sports statistics (0.17.1)
+
+Sports center shows standings for each selected league and season summaries for selected teams: records, available conference positions, streaks, scoring for/against and differential. Expand Season statistics in the browser, or select a team on Android, for the full available summary. League standings include all teams. Football/basketball use points, baseball uses runs, hockey/soccer use goals. Missing fields are omitted, never invented as zero.
+
+Sports EPG cards show both teams' season records and scoring when the title explicitly identifies exactly two teams in the selected league and contains a matchup marker (vs, versus, at or @). Ambiguous titles show “Opponent not identified.” A weekly show is not assigned the next scheduled opponent. These are current source-season statistics, not historical replay statistics or live game scores. The source season and preseason/regular/postseason phase are displayed. No player leaderboards or play-by-play are included.
+
+Source: [ESPN standings](https://site.api.espn.com/apis/v2/sports/football/nfl/standings), using corresponding NFL/NBA/MLB/NHL/MLS endpoints. This public endpoint has no availability guarantee. Refresh is cached for 15 minutes; previously fetched data may be served for up to 24 hours with an explicit cached label. Beyond that, statistics are unavailable. Server memory cache resets on restart; standalone Android stores public statistics locally. No IPTV credentials are sent to ESPN. Linked Android uses the server endpoint and needs server 0.17.1; standalone Android fetches independently without a server. Outages never block guide/playback.

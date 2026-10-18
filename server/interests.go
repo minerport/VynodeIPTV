@@ -192,6 +192,7 @@ func interestMatches(p InterestSettings, channels []Channel, programmes []Progra
 	return out, truncated
 }
 func (a *App) interestRoutes(m *http.ServeMux) {
+	a.sportsRoutes(m)
 	m.HandleFunc("GET /api/v1/interests", a.auth(false, func(w http.ResponseWriter, r *http.Request) {
 		owner, _ := a.identity(r)
 		send(w, 200, cloneInterests(a.store.snapshot().Interests)[owner])
