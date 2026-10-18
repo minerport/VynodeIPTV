@@ -241,7 +241,7 @@ class MainActivity: ComponentActivity() {
                     delay(30000)
                 }
             }
-            FullscreenOverlay(c,liveProgrammes,liveNow,
+            FullscreenOverlay(c,liveProgrammes,liveNow,profile=profile,
                 channels=channels, recent=profile?.let{GuideExperience(this,it).recent()}.orEmpty(),
                 cached=guideState.cache.mapValues{it.value.second},
                 onGuide={guideState.returnChannel.value=c.id;guideState.navigationOpen.value=false;fullScreen=false;multiView=multiEnabled;audio()},

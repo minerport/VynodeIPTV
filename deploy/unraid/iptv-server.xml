@@ -11,7 +11,7 @@
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
   <Date>2026-10-18</Date>
-  <Changes>0.19.0: Redesigned sports hub with Games, Teams, Standings, Players and Compare. Full paginated ESPN player statistics, team roster filters, sortable columns and career drilldowns. Compact matchup cards, team emblems and TV-friendly tables. All scheduled selected-team games remain available without channel matches.</Changes>
+  <Changes>0.20.0: Customizable live score overlay for browser and Android. Same-sport, all-live and cross-sport pinned games. Six positions, size, opacity, accents and quiet page rotation. Fresh ESPN status excludes scheduled and stale games.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

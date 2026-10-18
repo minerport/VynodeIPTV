@@ -88,3 +88,4 @@ VynodeIPTV's original source, templates, metadata and artwork are licensed under
 See the [Community Apps submission checklist](docs/COMMUNITY-APPS.md).
 
 Personalized sports, local stations and genres: see [For You](docs/FOR-YOU.md).
+Customizable scores while watching: see [Live score overlay](docs/LIVE-SCORES.md).
