@@ -172,7 +172,15 @@ class GuideUiState {
         if(selected=="favorites" || index>=0)requestAttachedFocus(groupFocus)
     }}
     LaunchedEffect(store){try{groups=store.load();preferences=store.preferences()}catch(e:Exception){message=e.message?:"Could not load groups"}}
-    LaunchedEffect(Unit){while(true){delay(30000);now=System.currentTimeMillis()}}
+    LaunchedEffect(Unit){while(true){
+        now=System.currentTimeMillis()
+        start=guideStartOnTick(start,now)
+        val focused=state.focusedProgramme.value
+        if(focused==null || focused.end<=now){
+            state.focusedProgramme.value=cache[state.focusedChannel.value?.id]?.second?.firstOrNull{it.start<=start && it.end>start}
+        }
+        delay(15000)
+    }}
     LaunchedEffect(state.refreshRevision.intValue,visible.map{it.id},now/300000,if(repo is ServerRepository)windowStart else 0L){
         delay(150)
         val missing=visible.filter{System.currentTimeMillis()-(cache[it.id]?.first?:0)>=300000 || (repo is ServerRepository && state.cacheWindows[it.id]!=windowStart)}

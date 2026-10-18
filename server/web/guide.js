@@ -27,3 +27,6 @@ export function guideCells(programmes,start,duration){
 
 export function orderedGroups(groups,order=[]){const ranks=new Map(order.map((id,i)=>[id,i]));return [...groups].sort((a,b)=>(ranks.get(a.id)??Infinity)-(ranks.get(b.id)??Infinity)||String(a.name||a.id).localeCompare(String(b.name||b.id),undefined,{sensitivity:"base",numeric:true}));}
 export function virtualRange(count,scrollTop,height,rowHeight=62,overscan=5){const first=Math.max(0,Math.min(Math.max(0,count-1),Math.floor(scrollTop/rowHeight)));const start=Math.max(0,first-overscan);const end=Math.min(count,first+Math.ceil(height/rowHeight)+overscan);return {start,end,top:start*rowHeight,bottom:(count-end)*rowHeight};}
+
+// A future window stays put until real time catches up.
+export function guideStartOnTick(start,now){return Math.max(start,now)}

@@ -6,7 +6,7 @@ import {discoveryUI,guideDensities} from './discovery.js';
 import {recordingUI} from './recordings.js';
 import {metadataPanel,metadataSettings,guideMetadata} from './metadata.js';
 import {VideoWall} from './wall.js';
-import {providerGroups,inGroup,clipProgramme,guideCells,orderedGroups,virtualRange} from './guide.js';
+import {providerGroups,inGroup,clipProgramme,guideCells,orderedGroups,virtualRange,guideStartOnTick} from './guide.js';
 const $=id=>document.getElementById(id),phoneLayout=matchMedia('(max-width:700px)');
 let rowHeight=62;
 let duration=phoneLayout.matches?3600000:3*3600000;
@@ -43,11 +43,11 @@ function openChannelActions(c,p){
 }
 function renderGuide(force=true){
  const list=filtered(),viewport=$('guide-viewport');if(viewport.scrollTop>Math.max(0,list.length*rowHeight-viewport.clientHeight))viewport.scrollTop=Math.max(0,list.length*rowHeight-viewport.clientHeight);
- const r=range(),signature=[selected,$('search').value,start,r.start,r.end,list.length].join('|');if(!force&&signature===lastWindow)return;lastWindow=signature;const focus=document.activeElement?.dataset.focusKey;
+ const r=range(),signature=[selected,$('search').value,start,r.start,r.end,list.length].join('|');if(!force&&signature===lastWindow)return;lastWindow=signature;const focus=document.activeElement?.dataset.focusKey;const focusedChannel=document.activeElement?.closest('.guide-row')?.dataset.channelId;
  $('time-labels').replaceChildren(...Array.from({length:duration/1800000},(_,i)=>el('span',time(start+i*1800000))));$('guide-date').textContent=new Date(start).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
  const enrichment=[];const target=$('guide-rows');target.replaceChildren();const spacer=height=>{const e=el('div');e.style.height=height+'px';e.setAttribute('aria-hidden','true');return e};target.append(spacer(r.top));
  for(const c of list.slice(r.start,r.end)){
-  const row=el('div',null,'guide-row'),label=el('div',null,'channel-cell');
+  const row=el('div',null,'guide-row'),label=el('div',null,'channel-cell');row.dataset.channelId=c.id;
   const star=button(preferences.favorites.includes(c.id)?'★':'☆',()=>favorite(c),'favorite');star.setAttribute('aria-label',(preferences.favorites.includes(c.id)?'Remove '+c.name+' from':'Add '+c.name+' to')+' favorites');star.setAttribute('aria-pressed',String(preferences.favorites.includes(c.id)));star.dataset.focusKey='favorite:'+c.id;star.disabled=preferenceBusy;
   const tuneButton=button(c.name,()=>tune(c),'channel-name');tuneButton.dataset.focusKey='channel:'+c.id;
   const logo=safeChannelLogo(c.logo);if(logo){const image=el('img');image.src=logo;image.alt='';image.className='channel-logo';image.loading='lazy';image.decoding='async';image.referrerPolicy='no-referrer';image.onerror=()=>image.remove();tuneButton.prepend(image)}
@@ -61,7 +61,7 @@ function renderGuide(force=true){
   }
   if(Date.now()>=start&&Date.now()<start+duration){const line=el('div',null,'now-line');line.style.left=(Date.now()-start)/duration*100+'%';track.append(line)}row.append(track);target.append(row);
  }target.append(spacer(r.bottom));if(!list.length)target.append(el('p',selected==='favorites'?'No favorites yet. Use the star beside any channel.':'No channels match this view.'));$('channel-total').textContent=list.length+' channels · Scroll to browse';
- if(focus)[...target.querySelectorAll('[data-focus-key]')].find(e=>e.dataset.focusKey===focus)?.focus({preventScroll:true});updateNowPlaying();guideEnrichment.show(enrichment);
+ if(focus){const items=[...target.querySelectorAll('[data-focus-key]')];(items.find(e=>e.dataset.focusKey===focus)||items.find(e=>e.dataset.focusKey==='channel:'+focusedChannel))?.focus({preventScroll:true});}updateNowPlaying();guideEnrichment.show(enrichment);
 }
 function updateNowPlaying(){if(!active)return;const p=(guideCache.get(active.channelId)?.programmes||[]).find(p=>Date.parse(p.start)<=Date.now()&&Date.parse(p.end)>Date.now());$('playing-programme').textContent=p?p.title+' · '+time(p.start)+'–'+time(p.end):'Live channel · programme information unavailable';if(!document.activeElement?.classList.contains('programme'))metadata.show(p)}
 async function loadGuide(){
@@ -139,7 +139,9 @@ guideViewport.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId
 function endGuideDrag(e){if(drag?.id===e.pointerId){if(guideViewport.hasPointerCapture(e.pointerId))guideViewport.releasePointerCapture(e.pointerId);drag=null;setTimeout(()=>suppressGuideClick=false,0)}}
 guideViewport.addEventListener('pointerup',endGuideDrag);guideViewport.addEventListener('pointercancel',endGuideDrag);
 guideViewport.addEventListener('click',e=>{if(suppressGuideClick){e.preventDefault();e.stopImmediatePropagation()}},true);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token&&!$('dashboard').hidden)$('now').click()});
+function tickGuide(){if(!token||document.hidden||$('dashboard').hidden)return;start=guideStartOnTick(start,Date.now());renderGuide();scheduleGuide()}
+setInterval(tickGuide,15000);
+document.addEventListener('visibilitychange',tickGuide);
 
 // Phone drawers and a shorter visible timeline leave channel names on screen.
 function closeGroups(){setGroups(false);$('show-groups').focus({preventScroll:true})}

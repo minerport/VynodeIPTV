@@ -23,3 +23,6 @@ fun safeChannelLogo(raw:String):String = runCatching {
 }.getOrDefault("")
 
 fun guideStartAfterShift(start:Long,delta:Long,now:Long):Long = (start+delta).coerceIn(now,now+7*86400000L)
+
+/** Keep live listings current without pulling a future browsing window backward. */
+fun guideStartOnTick(start:Long,now:Long):Long = maxOf(start,now)

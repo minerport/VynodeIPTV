@@ -10,8 +10,8 @@
   <ExtraSearchTerms>iptv xtream epg television android shield video wall</ExtraSearchTerms>
   <Requires>x86-64 CPU; configuration and scratch directories writable by UID/GID 10001; authorized IPTV provider account for live channels. Read the installation guide before first launch.</Requires>
   <Beta>true</Beta>
-  <Date>2026-10-17</Date>
-  <Changes>0.16.5: Playback quality settings, server Data Saver conversion, browser and Android support reports, and Linux host CPU diagnostics. Quality settings apply to newly opened streams.</Changes>
+  <Date>2026-10-18</Date>
+  <Changes>0.16.7: Android and browser guides advance with current time, preserve future browsing and channel position, and refresh expired listings. Includes the Shield group and Favorite crash fix.</Changes>
   <Privileged>false</Privileged>
   <Support>https://github.com/minerport/VynodeIPTV/issues</Support>
   <Project>https://github.com/minerport/VynodeIPTV</Project>

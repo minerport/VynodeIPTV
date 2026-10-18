@@ -1,5 +1,7 @@
 # Guide controls
 
+The live guide advances with the clock every 15 seconds on Android (standalone or linked) and in the browser. Upcoming windows stay where you browsed until real time catches up; choose Now to resume live browsing immediately. Expired listings leave the visible window without resetting the channel list's scroll position. Browser tabs catch up when made visible again; Android catches up when the guide is reopened.
+
 ## Android TV / Shield
 
 - Up/Down: move through channels or actions.
